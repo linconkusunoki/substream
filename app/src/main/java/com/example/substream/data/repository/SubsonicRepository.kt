@@ -1,5 +1,7 @@
 package com.example.substream.data.repository
 
+import com.example.substream.BuildConfig
+import com.example.substream.data.api.Album
 import com.example.substream.data.api.SubsonicApiService
 import com.example.substream.data.api.SubsonicAuthUtil
 import com.example.substream.data.api.SubsonicPingData
@@ -22,26 +24,52 @@ class SubsonicRepository(
      * @return A Result containing the PingData if successful, or an Exception if it fails.
      */
     suspend fun pingServer(user: String, pass: String): Result<SubsonicPingData> {
-        // withContext(Dispatchers.IO) moves this execution to a background thread pool,
-        // specifically optimized for Network/Disk operations, keeping the UI thread smooth.
         return withContext(Dispatchers.IO) {
             try {
-                // 1. Generate token and salt
                 val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
-
-                // 2. Make the API call
                 val response = api.ping(
                     user = user,
                     token = authParams.token,
                     salt = authParams.salt
                 )
-
-                // 3. Return success with the actual payload
                 Result.success(response.subsonicResponse)
             } catch (e: Exception) {
-                // Return failure if network is down, URL is wrong, or JSON parsing fails
                 Result.failure(e)
             }
         }
+    }
+
+    /**
+     * Fetches the list of albums from the Navidrome/Subsonic server.
+     *
+     * @param user The username for the Navidrome server.
+     * @param pass The plain text password.
+     * @return A Result containing a list of Albums if successful, or an Exception if it fails.
+     */
+    suspend fun getAlbums(user: String, pass: String): Result<List<Album>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
+                val response = api.getAlbums(
+                    user = user,
+                    token = authParams.token,
+                    salt = authParams.salt
+                )
+                val albums = response.subsonicResponse.albumList2?.album ?: emptyList()
+                Result.success(albums)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Constructs a full authenticated URL to fetch cover art for a given coverArt ID.
+     */
+    fun getCoverArtUrl(coverArtId: String, user: String, pass: String): String {
+        val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
+        val baseUrl = BuildConfig.NAVIDROME_URL
+        val cleanBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        return "${cleanBaseUrl}rest/getCoverArt.view?id=$coverArtId&u=$user&t=${authParams.token}&s=${authParams.salt}&v=1.16.1&c=SubStream"
     }
 }

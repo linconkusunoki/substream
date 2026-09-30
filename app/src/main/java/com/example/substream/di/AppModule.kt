@@ -3,6 +3,7 @@ package com.example.substream.di
 import com.example.substream.BuildConfig
 import com.example.substream.data.api.ApiClientFactory
 import com.example.substream.data.repository.SubsonicRepository
+import com.example.substream.ui.screens.AlbumsViewModel
 import com.example.substream.ui.screens.PingViewModel
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -23,8 +24,12 @@ val appModule = module {
         SubsonicRepository(api = get())
     }
 
-    // 3. viewModel {} tells Koin how to build our ViewModel
+    // 3. viewModel {} tells Koin how to build our ViewModels
     viewModel {
         PingViewModel(repository = get())
+    }
+
+    viewModel {
+        AlbumsViewModel(repository = get())
     }
 }

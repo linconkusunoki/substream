@@ -11,13 +11,32 @@ import retrofit2.http.Query
 
 @Serializable
 data class SubsonicResponseWrapper(
-    @SerialName("subsonic-response") val subsonicResponse: SubsonicPingData
+    @SerialName("subsonic-response") val subsonicResponse: SubsonicResponse
 )
 
 @Serializable
-data class SubsonicPingData(
+data class SubsonicResponse(
     val status: String,
-    val version: String
+    val version: String,
+    val albumList2: AlbumListContainer? = null
+)
+
+// Alias for backward compatibility with existing ping references
+typealias SubsonicPingData = SubsonicResponse
+
+@Serializable
+data class AlbumListContainer(
+    val album: List<Album> = emptyList()
+)
+
+@Serializable
+data class Album(
+    val id: String,
+    val name: String,
+    val artist: String? = null,
+    val coverArt: String? = null,
+    val songCount: Int? = null,
+    val year: Int? = null
 )
 
 // =====================================================================
@@ -31,6 +50,18 @@ interface SubsonicApiService {
         @Query("u") user: String,
         @Query("t") token: String,
         @Query("s") salt: String,
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/getAlbumList2.view")
+    suspend fun getAlbums(
+        @Query("u") user: String,
+        @Query("t") token: String,
+        @Query("s") salt: String,
+        @Query("type") type: String = "newest",
+        @Query("size") size: Int = 20,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"

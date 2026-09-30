@@ -87,4 +87,7 @@ dependencies {
 
     // Koin for Jetpack Compose (Dependency Injection)
     implementation("io.insert-koin:koin-androidx-compose:3.5.6")
+
+    // Coil for Jetpack Compose (Image Loading)
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }
