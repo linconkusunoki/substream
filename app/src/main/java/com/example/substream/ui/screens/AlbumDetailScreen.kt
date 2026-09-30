@@ -1,6 +1,7 @@
 package com.example.substream.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,7 +44,9 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.substream.data.api.AlbumDetail
 import com.example.substream.data.api.Song
+import com.example.substream.player.PlayerManager
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import java.util.Locale
 
 // =====================================================================
@@ -56,6 +59,7 @@ import java.util.Locale
  * @param albumId The ID of the album to load.
  * @param onBackClick Optional callback for back navigation.
  * @param viewModel The Koin-injected AlbumDetailViewModel.
+ * @param playerManager The Koin-injected PlayerManager for media playback.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +67,7 @@ fun AlbumDetailScreen(
     albumId: String,
     onBackClick: (() -> Unit)? = null,
     viewModel: AlbumDetailViewModel = koinViewModel(),
+    playerManager: PlayerManager = koinInject(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -114,7 +119,8 @@ fun AlbumDetailScreen(
                 is AlbumDetailState.Success -> {
                     AlbumDetailContent(
                         albumDetail = state.albumDetail,
-                        getCoverArtUrl = { coverArtId -> viewModel.getCoverArtUrl(coverArtId) }
+                        getCoverArtUrl = { coverArtId -> viewModel.getCoverArtUrl(coverArtId) },
+                        onSongClick = { song -> playerManager.playSong(song) }
                     )
                 }
             }
@@ -133,6 +139,7 @@ fun AlbumDetailScreen(
 private fun AlbumDetailContent(
     albumDetail: AlbumDetail,
     getCoverArtUrl: (String?) -> String?,
+    onSongClick: (Song) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -167,7 +174,8 @@ private fun AlbumDetailContent(
         ) { index, song ->
             SongRowItem(
                 index = index + 1,
-                song = song
+                song = song,
+                onSongClick = onSongClick
             )
         }
     }
@@ -254,11 +262,13 @@ private fun AlbumHeader(
 private fun SongRowItem(
     index: Int,
     song: Song,
+    onSongClick: (Song) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clickable { onSongClick(song) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
