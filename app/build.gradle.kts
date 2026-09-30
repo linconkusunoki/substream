@@ -1,7 +1,16 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.0"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.20"
+}
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
 }
 
 android {
@@ -18,6 +27,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "NAVIDROME_URL", "\"${localProperties.getProperty("NAVIDROME_URL") ?: ""}\"")
+        buildConfigField("String", "NAVIDROME_USER", "\"${localProperties.getProperty("NAVIDROME_USER") ?: ""}\"")
+        buildConfigField("String", "NAVIDROME_PASS", "\"${localProperties.getProperty("NAVIDROME_PASS") ?: ""}\"")
     }
 
     buildTypes {
@@ -33,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -70,4 +84,7 @@ dependencies {
     // 4. ViewModel & Navigation (State management and routing for Jetpack Compose)
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
     implementation("androidx.navigation:navigation-compose:2.10.2")
+
+    // Koin for Jetpack Compose (Dependency Injection)
+    implementation("io.insert-koin:koin-androidx-compose:3.5.6")
 }
