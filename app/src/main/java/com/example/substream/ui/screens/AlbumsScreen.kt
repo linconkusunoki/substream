@@ -51,6 +51,7 @@ import org.koin.androidx.compose.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumsScreen(
+    onAlbumClick: (Album) -> Unit = {},
     viewModel: AlbumsViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -105,6 +106,7 @@ fun AlbumsScreen(
                     } else {
                         AlbumsGrid(
                             albums = state.albums,
+                            onAlbumClick = onAlbumClick,
                             getCoverArtUrl = { coverArt -> viewModel.getCoverArtUrl(coverArt) }
                         )
                     }
@@ -124,6 +126,7 @@ fun AlbumsScreen(
 @Composable
 private fun AlbumsGrid(
     albums: List<Album>,
+    onAlbumClick: (Album) -> Unit,
     getCoverArtUrl: (String?) -> String?,
     modifier: Modifier = Modifier
 ) {
@@ -140,7 +143,8 @@ private fun AlbumsGrid(
         ) { album ->
             AlbumCard(
                 album = album,
-                coverArtUrl = getCoverArtUrl(album.coverArt)
+                coverArtUrl = getCoverArtUrl(album.coverArt),
+                onClick = { onAlbumClick(album) }
             )
         }
     }
@@ -157,9 +161,11 @@ private fun AlbumsGrid(
 private fun AlbumCard(
     album: Album,
     coverArtUrl: String?,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(

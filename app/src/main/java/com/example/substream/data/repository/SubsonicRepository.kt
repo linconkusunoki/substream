@@ -2,6 +2,7 @@ package com.example.substream.data.repository
 
 import com.example.substream.BuildConfig
 import com.example.substream.data.api.Album
+import com.example.substream.data.api.AlbumDetail
 import com.example.substream.data.api.SubsonicApiService
 import com.example.substream.data.api.SubsonicAuthUtil
 import com.example.substream.data.api.SubsonicPingData
@@ -57,6 +58,33 @@ class SubsonicRepository(
                 )
                 val albums = response.subsonicResponse.albumList2?.album ?: emptyList()
                 Result.success(albums)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Fetches details of a specific album, including its tracklist.
+     *
+     * @param user The username for the Navidrome server.
+     * @param pass The plain text password.
+     * @param albumId The unique ID of the album.
+     * @return A Result containing AlbumDetail if successful, or an Exception if it fails.
+     */
+    suspend fun getAlbumDetails(user: String, pass: String, albumId: String): Result<AlbumDetail> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
+                val response = api.getAlbum(
+                    user = user,
+                    token = authParams.token,
+                    salt = authParams.salt,
+                    albumId = albumId
+                )
+                val detail = response.subsonicResponse.album
+                    ?: throw Exception("Album details not found in server response")
+                Result.success(detail)
             } catch (e: Exception) {
                 Result.failure(e)
             }

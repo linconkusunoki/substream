@@ -18,7 +18,8 @@ data class SubsonicResponseWrapper(
 data class SubsonicResponse(
     val status: String,
     val version: String,
-    val albumList2: AlbumListContainer? = null
+    val albumList2: AlbumListContainer? = null,
+    val album: AlbumDetail? = null
 )
 
 // Alias for backward compatibility with existing ping references
@@ -37,6 +38,39 @@ data class Album(
     val coverArt: String? = null,
     val songCount: Int? = null,
     val year: Int? = null
+)
+
+@Serializable
+data class AlbumDetail(
+    val id: String,
+    val name: String,
+    val artist: String? = null,
+    val artistId: String? = null,
+    val coverArt: String? = null,
+    val songCount: Int? = null,
+    val duration: Int? = null,
+    val year: Int? = null,
+    val song: List<Song> = emptyList()
+)
+
+@Serializable
+data class Song(
+    val id: String,
+    val title: String,
+    val album: String? = null,
+    val artist: String? = null,
+    val track: Int? = null,
+    val year: Int? = null,
+    val genre: String? = null,
+    val coverArt: String? = null,
+    val duration: Int? = null,
+    val size: Long? = null,
+    val contentType: String? = null,
+    val suffix: String? = null,
+    val bitRate: Int? = null,
+    val path: String? = null,
+    val albumId: String? = null,
+    val artistId: String? = null
 )
 
 // =====================================================================
@@ -62,6 +96,17 @@ interface SubsonicApiService {
         @Query("s") salt: String,
         @Query("type") type: String = "newest",
         @Query("size") size: Int = 20,
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/getAlbum.view")
+    suspend fun getAlbum(
+        @Query("u") user: String,
+        @Query("t") token: String,
+        @Query("s") salt: String,
+        @Query("id") albumId: String,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"

@@ -90,4 +90,7 @@ dependencies {
 
     // Coil for Jetpack Compose (Image Loading)
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Material Icons Extended
+    implementation("androidx.compose.material:material-icons-extended")
 }

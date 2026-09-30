@@ -3,6 +3,7 @@ package com.example.substream.di
 import com.example.substream.BuildConfig
 import com.example.substream.data.api.ApiClientFactory
 import com.example.substream.data.repository.SubsonicRepository
+import com.example.substream.ui.screens.AlbumDetailViewModel
 import com.example.substream.ui.screens.AlbumsViewModel
 import com.example.substream.ui.screens.PingViewModel
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -31,5 +32,9 @@ val appModule = module {
 
     viewModel {
         AlbumsViewModel(repository = get())
+    }
+
+    viewModel {
+        AlbumDetailViewModel(repository = get(), savedStateHandle = getOrNull())
     }
 }
