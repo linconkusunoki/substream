@@ -123,7 +123,10 @@ fun AlbumDetailScreen(
                     AlbumDetailContent(
                         albumDetail = state.albumDetail,
                         getCoverArtUrl = { coverArtId -> viewModel.getCoverArtUrl(coverArtId) },
-                        onSongClick = { song -> playerManager.playSong(song) },
+                        onSongClick = { song ->
+                            val index = state.albumDetail.song.indexOf(song).coerceAtLeast(0)
+                            playerManager.playSongs(state.albumDetail.song, index)
+                        },
                         onToggleStarAlbum = { albumDetail -> viewModel.toggleStarAlbum(albumDetail) },
                         onToggleStarSong = { song -> viewModel.toggleStarSong(song) }
                     )

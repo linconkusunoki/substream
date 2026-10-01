@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +48,8 @@ fun PlayerBar(
     onPlayPauseClick: () -> Unit,
     onStopClick: () -> Unit,
     getCoverArtUrl: (String?) -> String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBarClick: (() -> Unit)? = null
 ) {
     val currentSong = playerState.currentSong
 
@@ -59,6 +61,7 @@ fun PlayerBar(
     ) {
         if (currentSong != null) {
             Card(
+                onClick = { onBarClick?.invoke() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -75,7 +78,9 @@ fun PlayerBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Album Cover Art or Music Icon Fallback
-                    val coverArtUrl = getCoverArtUrl(currentSong.coverArt)
+                    val coverArtUrl = remember(currentSong.coverArt) {
+                        getCoverArtUrl(currentSong.coverArt)
+                    }
 
                     if (!coverArtUrl.isNullOrEmpty()) {
                         AsyncImage(
