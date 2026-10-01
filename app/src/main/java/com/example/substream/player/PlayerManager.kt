@@ -211,7 +211,7 @@ class PlayerManager(
             val streamUrl = getStreamUrl(song.id)
             val mediaMetadata = MediaMetadata.Builder()
                 .setTitle(song.title)
-                .setArtist(song.artist ?: "Artista Desconhecido")
+                .setArtist(song.artist ?: "Unknown Artist")
                 .setAlbumTitle(song.album ?: "")
                 .setArtworkUri(getCoverArtUrl(song.coverArt)?.let { Uri.parse(it) })
                 .build()

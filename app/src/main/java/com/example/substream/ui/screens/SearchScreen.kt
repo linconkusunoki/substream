@@ -89,13 +89,13 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Buscar", fontWeight = FontWeight.Bold) },
+                title = { Text("Search", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     onBackClick?.let { onClick ->
                         IconButton(onClick = onClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Voltar"
+                                contentDescription = "Back"
                             )
                         }
                     }
@@ -133,7 +133,7 @@ fun SearchScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Digite o nome de uma música ou álbum para buscar.",
+                                text = "Type a song or album name to search.",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -185,11 +185,11 @@ private fun SearchInputField(
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
-        placeholder = { Text("Artistas, álbuns, músicas...") },
+        placeholder = { Text("Artists, albums, songs...") },
         leadingIcon = {
             Icon(
                 imageVector = Icons.Default.Search,
-                contentDescription = "Buscar"
+                contentDescription = "Search"
             )
         },
         trailingIcon = {
@@ -197,7 +197,7 @@ private fun SearchInputField(
                 IconButton(onClick = { onQueryChange("") }) {
                     Icon(
                         imageVector = Icons.Default.Clear,
-                        contentDescription = "Limpar"
+                        contentDescription = "Clear"
                     )
                 }
             }
@@ -230,8 +230,8 @@ private fun SearchResultsTabbedContent(
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf(
-        "Álbuns (${searchResult.album.size})",
-        "Músicas (${searchResult.song.size})"
+        "Albums (${searchResult.album.size})",
+        "Songs (${searchResult.song.size})"
     )
 
     if (searchResult.album.isEmpty() && searchResult.song.isEmpty()) {
@@ -240,7 +240,7 @@ private fun SearchResultsTabbedContent(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Nenhum resultado encontrado.",
+                text = "No results found.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -270,7 +270,7 @@ private fun SearchResultsTabbedContent(
         when (selectedTabIndex) {
             0 -> {
                 if (searchResult.album.isEmpty()) {
-                    EmptySectionText(message = "Nenhum álbum encontrado.")
+                    EmptySectionText(message = "No albums found.")
                 } else {
                     SearchAlbumsGrid(
                         albums = searchResult.album,
@@ -283,7 +283,7 @@ private fun SearchResultsTabbedContent(
 
             1 -> {
                 if (searchResult.song.isEmpty()) {
-                    EmptySectionText(message = "Nenhuma música encontrada.")
+                    EmptySectionText(message = "No songs found.")
                 } else {
                     SearchSongsList(
                         songs = searchResult.song,
@@ -364,7 +364,7 @@ private fun SearchAlbumCard(
                 ) {
                     Icon(
                         imageVector = if (album.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                        contentDescription = if (album.isStarred) "Desfavoritar" else "Favoritar",
+                        contentDescription = if (album.isStarred) "Unfavorite" else "Favorite",
                         tint = if (album.isStarred) Color(0xFFFFC107) else Color.White
                     )
                 }
@@ -382,7 +382,7 @@ private fun SearchAlbumCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = album.artist ?: "Artista Desconhecido",
+                    text = album.artist ?: "Unknown Artist",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -484,7 +484,7 @@ private fun SearchSongRowItem(
         IconButton(onClick = onToggleStar) {
             Icon(
                 imageVector = if (song.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                contentDescription = if (song.isStarred) "Desfavoritar" else "Favoritar",
+                contentDescription = if (song.isStarred) "Unfavorite" else "Favorite",
                 tint = if (song.isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -516,29 +516,4 @@ private fun formatDuration(seconds: Int?): String {
     val minutes = seconds / 60
     val remainingSeconds = seconds % 60
     return String.format(Locale.getDefault(), "%02d:%02d", minutes, remainingSeconds)
-}
-
-@Composable
-private fun ErrorContent(
-    message: String,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = onRetry) {
-            Text("Tentar Novamente")
-        }
-    }
 }

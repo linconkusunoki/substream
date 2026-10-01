@@ -54,12 +54,16 @@ import org.koin.androidx.compose.koinViewModel
 /**
  * Main Composable function for the Albums Screen.
  * Uses Koin to inject the AlbumsViewModel and loads albums automatically upon entry.
+ *
+ * Set [showTopBar] to false to embed the list inside another screen (e.g. the Library tab).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumsScreen(
     onAlbumClick: (Album) -> Unit = {},
     onSearchClick: () -> Unit = {},
+    title: String = "Albums",
+    showTopBar: Boolean = true,
     viewModel: AlbumsViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -69,29 +73,7 @@ fun AlbumsScreen(
         viewModel.loadAlbums()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Álbuns",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onSearchClick) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Buscar"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        }
-    ) { paddingValues ->
+    val content: @Composable (PaddingValues) -> Unit = { paddingValues ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -115,12 +97,12 @@ fun AlbumsScreen(
                 is AlbumsState.Success -> {
                     if (state.albums.isEmpty()) {
                         Text(
-                            text = "Nenhum álbum encontrado.",
+                            text = "No albums found.",
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.align(Alignment.Center)
                         )
                     } else {
-                        AlbumsGrid(
+                        AlbumGrid(
                             albums = state.albums,
                             onAlbumClick = onAlbumClick,
                             onToggleStar = { album -> viewModel.toggleStarAlbum(album) },
@@ -130,6 +112,37 @@ fun AlbumsScreen(
                 }
             }
         }
+    }
+
+    if (!showTopBar) {
+        content(PaddingValues(0.dp))
+        return
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = title,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                actions = {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        }
+    ) { paddingValues ->
+        content(paddingValues)
     }
 }
 
@@ -141,7 +154,7 @@ fun AlbumsScreen(
  * Renders a 2-column grid of Album Cards using LazyVerticalGrid.
  */
 @Composable
-private fun AlbumsGrid(
+fun AlbumGrid(
     albums: List<Album>,
     onAlbumClick: (Album) -> Unit,
     onToggleStar: (Album) -> Unit,
@@ -177,7 +190,7 @@ private fun AlbumsGrid(
  * Card component to represent an individual Album item.
  */
 @Composable
-private fun AlbumCard(
+fun AlbumCard(
     album: Album,
     coverArtUrl: String?,
     onClick: () -> Unit,
@@ -213,7 +226,7 @@ private fun AlbumCard(
                 ) {
                     Icon(
                         imageVector = if (album.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                        contentDescription = if (album.isStarred) "Desfavoritar" else "Favoritar",
+                        contentDescription = if (album.isStarred) "Unfavorite" else "Favorite",
                         tint = if (album.isStarred) Color(0xFFFFC107) else Color.White
                     )
                 }
@@ -234,7 +247,7 @@ private fun AlbumCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = album.artist ?: "Artista Desconhecido",
+                    text = album.artist ?: "Unknown Artist",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -253,7 +266,7 @@ private fun AlbumCard(
  * Display component for error state with a retry button.
  */
 @Composable
-private fun ErrorContent(
+fun ErrorContent(
     message: String,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
@@ -272,7 +285,7 @@ private fun ErrorContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(onClick = onRetry) {
-            Text("Tentar Novamente")
+            Text("Try Again")
         }
     }
 }

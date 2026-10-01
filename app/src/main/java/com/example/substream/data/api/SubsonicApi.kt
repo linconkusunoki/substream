@@ -20,7 +20,10 @@ data class SubsonicResponse(
     val version: String,
     val albumList2: AlbumListContainer? = null,
     val album: AlbumDetail? = null,
-    val searchResult3: SearchResult3? = null
+    val searchResult3: SearchResult3? = null,
+    val artists: ArtistsContainer? = null,
+    val playlists: PlaylistsContainer? = null,
+    val starred2: StarredContainer? = null
 )
 
 // Alias for backward compatibility with existing ping references
@@ -29,6 +32,39 @@ typealias SubsonicPingData = SubsonicResponse
 @Serializable
 data class AlbumListContainer(
     val album: List<Album> = emptyList()
+)
+
+/** getArtists.view groups artists alphabetically by index name. */
+@Serializable
+data class ArtistsContainer(
+    val ignoredArticles: String = "",
+    val index: List<ArtistIndex> = emptyList()
+)
+
+@Serializable
+data class ArtistIndex(
+    val name: String,
+    val artist: List<Artist> = emptyList()
+)
+
+@Serializable
+data class PlaylistsContainer(
+    val playlist: List<Playlist> = emptyList()
+)
+
+@Serializable
+data class Playlist(
+    val id: String,
+    val name: String,
+    val coverArt: String? = null,
+    val songCount: Int? = null,
+    val owner: String? = null
+)
+
+@Serializable
+data class StarredContainer(
+    val album: List<Album> = emptyList(),
+    val song: List<Song> = emptyList()
 )
 
 @Serializable
@@ -152,6 +188,37 @@ interface SubsonicApiService {
         @Query("artistCount") artistCount: Int = 20,
         @Query("albumCount") albumCount: Int = 20,
         @Query("songCount") songCount: Int = 20,
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/getArtists.view")
+    suspend fun getArtists(
+        @Query("u") user: String,
+        @Query("t") token: String,
+        @Query("s") salt: String,
+        @Query("type") type: String = "artists",
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/getPlaylists.view")
+    suspend fun getPlaylists(
+        @Query("u") user: String,
+        @Query("t") token: String,
+        @Query("s") salt: String,
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/getStarred2.view")
+    suspend fun getStarred(
+        @Query("u") user: String,
+        @Query("t") token: String,
+        @Query("s") salt: String,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"

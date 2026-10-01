@@ -3,6 +3,8 @@ package com.example.substream.data.repository
 import com.example.substream.BuildConfig
 import com.example.substream.data.api.Album
 import com.example.substream.data.api.AlbumDetail
+import com.example.substream.data.api.Artist
+import com.example.substream.data.api.Playlist
 import com.example.substream.data.api.SearchResult
 import com.example.substream.data.api.SearchResult3
 import com.example.substream.data.api.SubsonicApiService
@@ -118,6 +120,89 @@ class SubsonicRepository(
                 val searchResult = response.subsonicResponse.searchResult3
                     ?: SearchResult3()
                 Result.success(searchResult)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Fetches the artists index from the server.
+     *
+     * Navidrome does not implement getArtists.view, so on failure we fall back to the
+     * unique artists found in the album list. ponytail: replace with a real artist index
+     * once the server exposes one.
+     */
+    suspend fun getArtists(
+        user: String = BuildConfig.NAVIDROME_USER,
+        pass: String = BuildConfig.NAVIDROME_PASS
+    ): Result<List<Artist>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
+                val response = api.getArtists(
+                    user = user,
+                    token = authParams.token,
+                    salt = authParams.salt
+                )
+                Result.success(
+                    response.subsonicResponse.artists?.index
+                        ?.flatMap { it.artist }
+                        .orEmpty()
+                        .sortedBy { it.name.lowercase() }
+                )
+            } catch (e: Exception) {
+                val fallback = getAlbums(user, pass).getOrNull().orEmpty()
+                    .mapNotNull { album ->
+                        album.artist?.let { name ->
+                            Artist(id = album.id, name = name, coverArt = album.coverArt)
+                        }
+                    }
+                    .distinctBy { it.name.lowercase() }
+                    .sortedBy { it.name.lowercase() }
+                if (fallback.isEmpty()) Result.failure(e) else Result.success(fallback)
+            }
+        }
+    }
+
+    /**
+     * Fetches the playlists stored on the server.
+     */
+    suspend fun getPlaylists(
+        user: String = BuildConfig.NAVIDROME_USER,
+        pass: String = BuildConfig.NAVIDROME_PASS
+    ): Result<List<Playlist>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
+                val response = api.getPlaylists(
+                    user = user,
+                    token = authParams.token,
+                    salt = authParams.salt
+                )
+                Result.success(response.subsonicResponse.playlists?.playlist.orEmpty())
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Fetches starred (favorite) albums via getStarred2.view.
+     */
+    suspend fun getStarredAlbums(
+        user: String = BuildConfig.NAVIDROME_USER,
+        pass: String = BuildConfig.NAVIDROME_PASS
+    ): Result<List<Album>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
+                val response = api.getStarred(
+                    user = user,
+                    token = authParams.token,
+                    salt = authParams.salt
+                )
+                Result.success(response.subsonicResponse.starred2?.album.orEmpty())
             } catch (e: Exception) {
                 Result.failure(e)
             }

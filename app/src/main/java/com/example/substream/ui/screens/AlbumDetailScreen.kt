@@ -82,13 +82,13 @@ fun AlbumDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "Detalhes do Álbum") },
+                title = { Text(text = "Album Details") },
                 navigationIcon = {
                     onBackClick?.let { onClick ->
                         IconButton(onClick = onClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Voltar",
+                                contentDescription = "Back",
                             )
                         }
                     }
@@ -167,7 +167,7 @@ private fun AlbumDetailContent(
         // Section Title
         item {
             Text(
-                text = "Faixas",
+                text = "Tracks",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
@@ -232,7 +232,7 @@ private fun AlbumHeader(
             ) {
                 Icon(
                     imageVector = if (albumDetail.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                    contentDescription = if (albumDetail.isStarred) "Desfavoritar" else "Favoritar",
+                    contentDescription = if (albumDetail.isStarred) "Unfavorite" else "Favorite",
                     tint = if (albumDetail.isStarred) Color(0xFFFFC107) else Color.White
                 )
             }
@@ -252,7 +252,7 @@ private fun AlbumHeader(
 
         // Artist Name
         Text(
-            text = albumDetail.artist ?: "Artista Desconhecido",
+            text = albumDetail.artist ?: "Unknown Artist",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -263,7 +263,7 @@ private fun AlbumHeader(
         // Metadata Subtitle (Year & Song Count)
         val metadataText = listOfNotNull(
             albumDetail.year?.toString(),
-            "${albumDetail.song.size} faixas"
+            "${albumDetail.song.size} tracks"
         ).joinToString(" • ")
 
         if (metadataText.isNotEmpty()) {
@@ -347,7 +347,7 @@ private fun SongRowItem(
         IconButton(onClick = onToggleStarSong) {
             Icon(
                 imageVector = if (song.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
-                contentDescription = if (song.isStarred) "Desfavoritar" else "Favoritar",
+                contentDescription = if (song.isStarred) "Unfavorite" else "Favorite",
                 tint = if (song.isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -366,32 +366,4 @@ private fun formatDuration(seconds: Int?): String {
     val minutes = seconds / 60
     val remainingSeconds = seconds % 60
     return String.format(Locale.getDefault(), "%02d:%02d", minutes, remainingSeconds)
-}
-
-/**
- * Error display layout with retry button.
- */
-@Composable
-private fun ErrorContent(
-    message: String,
-    onRetry: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = onRetry) {
-            Text("Tentar Novamente")
-        }
-    }
 }

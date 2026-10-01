@@ -125,7 +125,7 @@ fun PlayerBar(
                         Spacer(modifier = Modifier.height(2.dp))
 
                         Text(
-                            text = currentSong.artist ?: "Artista Desconhecido",
+                            text = currentSong.artist ?: "Unknown Artist",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -147,7 +147,7 @@ fun PlayerBar(
                         IconButton(onClick = onPlayPauseClick) {
                             Icon(
                                 imageVector = if (playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (playerState.isPlaying) "Pausar" else "Reproduzir",
+                                contentDescription = if (playerState.isPlaying) "Pause" else "Play",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -157,7 +157,7 @@ fun PlayerBar(
                     IconButton(onClick = onStopClick) {
                         Icon(
                             imageVector = Icons.Default.Stop,
-                            contentDescription = "Parar",
+                            contentDescription = "Stop",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

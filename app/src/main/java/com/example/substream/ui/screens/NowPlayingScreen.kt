@@ -87,7 +87,7 @@ fun NowPlayingScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Reproduzindo",
+                        text = "Now Playing",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -96,7 +96,7 @@ fun NowPlayingScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = "Minimizar",
+                            contentDescription = "Minimize",
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -226,7 +226,7 @@ private fun SongInfoSection(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = song.artist ?: "Artista Desconhecido",
+            text = song.artist ?: "Unknown Artist",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -323,7 +323,7 @@ private fun PlaybackControlsSection(
         IconButton(onClick = onToggleShuffle) {
             Icon(
                 imageVector = Icons.Default.Shuffle,
-                contentDescription = "Modo Aleatório",
+                contentDescription = "Shuffle",
                 tint = if (playerState.shuffleModeEnabled) {
                     MaterialTheme.colorScheme.primary
                 } else {
@@ -339,7 +339,7 @@ private fun PlaybackControlsSection(
         ) {
             Icon(
                 imageVector = Icons.Default.SkipPrevious,
-                contentDescription = "Música Anterior",
+                contentDescription = "Previous Song",
                 modifier = Modifier.size(36.dp),
                 tint = MaterialTheme.colorScheme.onSurface
             )
@@ -366,7 +366,7 @@ private fun PlaybackControlsSection(
                 } else {
                     Icon(
                         imageVector = if (playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (playerState.isPlaying) "Pausar" else "Reproduzir",
+                        contentDescription = if (playerState.isPlaying) "Pause" else "Play",
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -380,7 +380,7 @@ private fun PlaybackControlsSection(
         ) {
             Icon(
                 imageVector = Icons.Default.SkipNext,
-                contentDescription = "Próxima Música",
+                contentDescription = "Next Song",
                 modifier = Modifier.size(36.dp),
                 tint = MaterialTheme.colorScheme.onSurface
             )
@@ -396,7 +396,7 @@ private fun PlaybackControlsSection(
 
             Icon(
                 imageVector = icon,
-                contentDescription = "Modo de Repetição",
+                contentDescription = "Repeat Mode",
                 tint = tint
             )
         }
