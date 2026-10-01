@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.substream.BuildConfig
 import com.example.substream.data.api.AlbumDetail
+import com.example.substream.data.api.Song
 import com.example.substream.data.repository.SubsonicRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -71,6 +72,49 @@ class AlbumDetailViewModel(
                     )
                 }
             )
+        }
+    }
+
+    /**
+     * Toggles star/favorite state for the current AlbumDetail.
+     */
+    fun toggleStarAlbum(albumDetail: AlbumDetail) {
+        viewModelScope.launch {
+            val isStarred = albumDetail.isStarred
+            val result = repository.toggleStar(id = albumDetail.id, isStarred = isStarred, isAlbum = true)
+            result.onSuccess { newStarred ->
+                val currentState = _uiState.value
+                if (currentState is AlbumDetailState.Success) {
+                    val updatedDetail = currentState.albumDetail.copy(
+                        starred = if (newStarred) "starred" else null
+                    )
+                    _uiState.value = AlbumDetailState.Success(updatedDetail)
+                }
+            }
+        }
+    }
+
+    /**
+     * Toggles star/favorite state for a Song item in the tracklist.
+     */
+    fun toggleStarSong(song: Song) {
+        viewModelScope.launch {
+            val isStarred = song.isStarred
+            val result = repository.toggleStar(id = song.id, isStarred = isStarred, isAlbum = false)
+            result.onSuccess { newStarred ->
+                val currentState = _uiState.value
+                if (currentState is AlbumDetailState.Success) {
+                    val updatedSongs = currentState.albumDetail.song.map { item ->
+                        if (item.id == song.id) {
+                            item.copy(starred = if (newStarred) "starred" else null)
+                        } else {
+                            item
+                        }
+                    }
+                    val updatedDetail = currentState.albumDetail.copy(song = updatedSongs)
+                    _uiState.value = AlbumDetailState.Success(updatedDetail)
+                }
+            }
         }
     }
 

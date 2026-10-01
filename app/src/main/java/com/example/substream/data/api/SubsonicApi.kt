@@ -19,7 +19,8 @@ data class SubsonicResponse(
     val status: String,
     val version: String,
     val albumList2: AlbumListContainer? = null,
-    val album: AlbumDetail? = null
+    val album: AlbumDetail? = null,
+    val searchResult3: SearchResult3? = null
 )
 
 // Alias for backward compatibility with existing ping references
@@ -31,14 +32,38 @@ data class AlbumListContainer(
 )
 
 @Serializable
+data class SearchResult3(
+    val artist: List<Artist> = emptyList(),
+    val album: List<Album> = emptyList(),
+    val song: List<Song> = emptyList()
+)
+
+typealias SearchResult = SearchResult3
+
+@Serializable
+data class Artist(
+    val id: String,
+    val name: String,
+    val coverArt: String? = null,
+    val artistImageUrl: String? = null,
+    val albumCount: Int? = null,
+    val starred: String? = null
+) {
+    val isStarred: Boolean get() = starred != null
+}
+
+@Serializable
 data class Album(
     val id: String,
     val name: String,
     val artist: String? = null,
     val coverArt: String? = null,
     val songCount: Int? = null,
-    val year: Int? = null
-)
+    val year: Int? = null,
+    val starred: String? = null
+) {
+    val isStarred: Boolean get() = starred != null
+}
 
 @Serializable
 data class AlbumDetail(
@@ -50,8 +75,11 @@ data class AlbumDetail(
     val songCount: Int? = null,
     val duration: Int? = null,
     val year: Int? = null,
-    val song: List<Song> = emptyList()
-)
+    val song: List<Song> = emptyList(),
+    val starred: String? = null
+) {
+    val isStarred: Boolean get() = starred != null
+}
 
 @Serializable
 data class Song(
@@ -70,8 +98,11 @@ data class Song(
     val bitRate: Int? = null,
     val path: String? = null,
     val albumId: String? = null,
-    val artistId: String? = null
-)
+    val artistId: String? = null,
+    val starred: String? = null
+) {
+    val isStarred: Boolean get() = starred != null
+}
 
 // =====================================================================
 // 2. THE INTERFACE (The Endpoints)
@@ -107,6 +138,46 @@ interface SubsonicApiService {
         @Query("t") token: String,
         @Query("s") salt: String,
         @Query("id") albumId: String,
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/search3.view")
+    suspend fun search3(
+        @Query("u") user: String,
+        @Query("t") token: String,
+        @Query("s") salt: String,
+        @Query("query") query: String,
+        @Query("artistCount") artistCount: Int = 20,
+        @Query("albumCount") albumCount: Int = 20,
+        @Query("songCount") songCount: Int = 20,
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/star.view")
+    suspend fun star(
+        @Query("u") user: String,
+        @Query("t") token: String,
+        @Query("s") salt: String,
+        @Query("id") id: String? = null,
+        @Query("albumId") albumId: String? = null,
+        @Query("artistId") artistId: String? = null,
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/unstar.view")
+    suspend fun unstar(
+        @Query("u") user: String,
+        @Query("t") token: String,
+        @Query("s") salt: String,
+        @Query("id") id: String? = null,
+        @Query("albumId") albumId: String? = null,
+        @Query("artistId") artistId: String? = null,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"

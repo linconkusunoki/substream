@@ -14,11 +14,17 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -31,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -52,6 +59,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun AlbumsScreen(
     onAlbumClick: (Album) -> Unit = {},
+    onSearchClick: () -> Unit = {},
     viewModel: AlbumsViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -69,6 +77,14 @@ fun AlbumsScreen(
                         text = "Álbuns",
                         fontWeight = FontWeight.Bold
                     )
+                },
+                actions = {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Buscar"
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -107,6 +123,7 @@ fun AlbumsScreen(
                         AlbumsGrid(
                             albums = state.albums,
                             onAlbumClick = onAlbumClick,
+                            onToggleStar = { album -> viewModel.toggleStarAlbum(album) },
                             getCoverArtUrl = { coverArt -> viewModel.getCoverArtUrl(coverArt) }
                         )
                     }
@@ -127,6 +144,7 @@ fun AlbumsScreen(
 private fun AlbumsGrid(
     albums: List<Album>,
     onAlbumClick: (Album) -> Unit,
+    onToggleStar: (Album) -> Unit,
     getCoverArtUrl: (String?) -> String?,
     modifier: Modifier = Modifier
 ) {
@@ -144,7 +162,8 @@ private fun AlbumsGrid(
             AlbumCard(
                 album = album,
                 coverArtUrl = getCoverArtUrl(album.coverArt),
-                onClick = { onAlbumClick(album) }
+                onClick = { onAlbumClick(album) },
+                onToggleStar = { onToggleStar(album) }
             )
         }
     }
@@ -162,6 +181,7 @@ private fun AlbumCard(
     album: Album,
     coverArtUrl: String?,
     onClick: () -> Unit,
+    onToggleStar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -174,16 +194,30 @@ private fun AlbumCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
-            // Album Cover Art loaded via Coil
-            AsyncImage(
-                model = coverArtUrl,
-                contentDescription = album.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
-            )
+            Box {
+                // Album Cover Art loaded via Coil
+                AsyncImage(
+                    model = coverArtUrl,
+                    contentDescription = album.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                )
+
+                // Favorite Star Button on Album Cover
+                IconButton(
+                    onClick = onToggleStar,
+                    modifier = Modifier.align(Alignment.TopEnd)
+                ) {
+                    Icon(
+                        imageVector = if (album.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                        contentDescription = if (album.isStarred) "Desfavoritar" else "Favoritar",
+                        tint = if (album.isStarred) Color(0xFFFFC107) else Color.White
+                    )
+                }
+            }
 
             // Album Details (Title and Artist)
             Column(

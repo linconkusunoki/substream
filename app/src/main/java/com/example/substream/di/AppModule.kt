@@ -7,6 +7,7 @@ import com.example.substream.player.PlayerManager
 import com.example.substream.ui.screens.AlbumDetailViewModel
 import com.example.substream.ui.screens.AlbumsViewModel
 import com.example.substream.ui.screens.PingViewModel
+import com.example.substream.ui.screens.SearchViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -43,5 +44,9 @@ val appModule = module {
 
     viewModel {
         AlbumDetailViewModel(repository = get(), savedStateHandle = getOrNull())
+    }
+
+    viewModel {
+        SearchViewModel(repository = get())
     }
 }

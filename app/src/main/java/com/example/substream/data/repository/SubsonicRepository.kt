@@ -3,6 +3,8 @@ package com.example.substream.data.repository
 import com.example.substream.BuildConfig
 import com.example.substream.data.api.Album
 import com.example.substream.data.api.AlbumDetail
+import com.example.substream.data.api.SearchResult
+import com.example.substream.data.api.SearchResult3
 import com.example.substream.data.api.SubsonicApiService
 import com.example.substream.data.api.SubsonicAuthUtil
 import com.example.substream.data.api.SubsonicPingData
@@ -85,6 +87,96 @@ class SubsonicRepository(
                 val detail = response.subsonicResponse.album
                     ?: throw Exception("Album details not found in server response")
                 Result.success(detail)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Executes global search for artists, albums, and songs matching the given query string.
+     *
+     * @param query The search term entered by the user.
+     * @param user The username for the Navidrome server (defaults to BuildConfig value).
+     * @param pass The plain text password (defaults to BuildConfig value).
+     * @return A Result containing SearchResult if successful, or an Exception if it fails.
+     */
+    suspend fun search(
+        query: String,
+        user: String = BuildConfig.NAVIDROME_USER,
+        pass: String = BuildConfig.NAVIDROME_PASS
+    ): Result<SearchResult> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
+                val response = api.search3(
+                    user = user,
+                    token = authParams.token,
+                    salt = authParams.salt,
+                    query = query
+                )
+                val searchResult = response.subsonicResponse.searchResult3
+                    ?: SearchResult3()
+                Result.success(searchResult)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Toggles the favorite / starred status of a song or album on the Subsonic server.
+     *
+     * @param id The unique ID of the item (song, album, or artist).
+     * @param isStarred The CURRENT starred state. If true, it will unstar; if false, it will star.
+     * @param isAlbum Set to true if starring an album ID instead of a song ID.
+     * @param isArtist Set to true if starring an artist ID instead of a song ID.
+     * @param user The username for the Navidrome server (defaults to BuildConfig value).
+     * @param pass The plain text password (defaults to BuildConfig value).
+     * @return A Result containing the new boolean starred status if successful.
+     */
+    suspend fun toggleStar(
+        id: String,
+        isStarred: Boolean,
+        isAlbum: Boolean = false,
+        isArtist: Boolean = false,
+        user: String = BuildConfig.NAVIDROME_USER,
+        pass: String = BuildConfig.NAVIDROME_PASS
+    ): Result<Boolean> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
+                val targetStarred = !isStarred
+
+                val songId = if (!isAlbum && !isArtist) id else null
+                val albumIdParam = if (isAlbum) id else null
+                val artistIdParam = if (isArtist) id else null
+
+                val response = if (targetStarred) {
+                    api.star(
+                        user = user,
+                        token = authParams.token,
+                        salt = authParams.salt,
+                        id = songId,
+                        albumId = albumIdParam,
+                        artistId = artistIdParam
+                    )
+                } else {
+                    api.unstar(
+                        user = user,
+                        token = authParams.token,
+                        salt = authParams.salt,
+                        id = songId,
+                        albumId = albumIdParam,
+                        artistId = artistIdParam
+                    )
+                }
+
+                if (response.subsonicResponse.status == "ok") {
+                    Result.success(targetStarred)
+                } else {
+                    Result.failure(Exception("Error toggling star status"))
+                }
             } catch (e: Exception) {
                 Result.failure(e)
             }

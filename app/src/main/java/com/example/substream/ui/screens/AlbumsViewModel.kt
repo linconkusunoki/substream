@@ -68,6 +68,29 @@ class AlbumsViewModel(
     }
 
     /**
+     * Toggles star/favorite state for an Album item on the home list.
+     */
+    fun toggleStarAlbum(album: Album) {
+        viewModelScope.launch {
+            val isStarred = album.isStarred
+            val result = repository.toggleStar(id = album.id, isStarred = isStarred, isAlbum = true)
+            result.onSuccess { newStarred ->
+                val currentState = _uiState.value
+                if (currentState is AlbumsState.Success) {
+                    val updatedAlbums = currentState.albums.map { item ->
+                        if (item.id == album.id) {
+                            item.copy(starred = if (newStarred) "starred" else null)
+                        } else {
+                            item
+                        }
+                    }
+                    _uiState.value = AlbumsState.Success(updatedAlbums)
+                }
+            }
+        }
+    }
+
+    /**
      * Generates a full authenticated cover art URL for a given coverArt ID.
      */
     fun getCoverArtUrl(coverArtId: String?): String? {

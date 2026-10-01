@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,7 +57,7 @@ import java.util.Locale
 // =====================================================================
 
 /**
- * Album Detail Screen displaying the album header and full tracklist.
+ * Album Detail Screen displaying the album header and full tracklist with favorite buttons.
  *
  * @param albumId The ID of the album to load.
  * @param onBackClick Optional callback for back navigation.
@@ -120,7 +123,9 @@ fun AlbumDetailScreen(
                     AlbumDetailContent(
                         albumDetail = state.albumDetail,
                         getCoverArtUrl = { coverArtId -> viewModel.getCoverArtUrl(coverArtId) },
-                        onSongClick = { song -> playerManager.playSong(song) }
+                        onSongClick = { song -> playerManager.playSong(song) },
+                        onToggleStarAlbum = { albumDetail -> viewModel.toggleStarAlbum(albumDetail) },
+                        onToggleStarSong = { song -> viewModel.toggleStarSong(song) }
                     )
                 }
             }
@@ -140,16 +145,19 @@ private fun AlbumDetailContent(
     albumDetail: AlbumDetail,
     getCoverArtUrl: (String?) -> String?,
     onSongClick: (Song) -> Unit,
+    onToggleStarAlbum: (AlbumDetail) -> Unit,
+    onToggleStarSong: (Song) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize()
     ) {
-        // Album Header (Cover Art + Title + Artist)
+        // Album Header (Cover Art + Title + Artist + Favorite Button)
         item {
             AlbumHeader(
                 albumDetail = albumDetail,
-                coverArtUrl = getCoverArtUrl(albumDetail.coverArt)
+                coverArtUrl = getCoverArtUrl(albumDetail.coverArt),
+                onToggleStarAlbum = { onToggleStarAlbum(albumDetail) }
             )
         }
 
@@ -175,7 +183,8 @@ private fun AlbumDetailContent(
             SongRowItem(
                 index = index + 1,
                 song = song,
-                onSongClick = onSongClick
+                onSongClick = onSongClick,
+                onToggleStarSong = { onToggleStarSong(song) }
             )
         }
     }
@@ -186,12 +195,13 @@ private fun AlbumDetailContent(
 // =====================================================================
 
 /**
- * Header component featuring a large cover image, album name, artist, and metadata.
+ * Header component featuring a large cover image, album name, artist, metadata, and favorite button.
  */
 @Composable
 private fun AlbumHeader(
     albumDetail: AlbumDetail,
     coverArtUrl: String?,
+    onToggleStarAlbum: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -200,17 +210,30 @@ private fun AlbumHeader(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Large Album Cover Art
-        AsyncImage(
-            model = coverArtUrl,
-            contentDescription = albumDetail.name,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(220.dp)
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-        )
+        // Large Album Cover Art with Star Button
+        Box {
+            AsyncImage(
+                model = coverArtUrl,
+                contentDescription = albumDetail.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(220.dp)
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            )
+
+            IconButton(
+                onClick = onToggleStarAlbum,
+                modifier = Modifier.align(Alignment.TopEnd)
+            ) {
+                Icon(
+                    imageVector = if (albumDetail.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                    contentDescription = if (albumDetail.isStarred) "Desfavoritar" else "Favoritar",
+                    tint = if (albumDetail.isStarred) Color(0xFFFFC107) else Color.White
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -256,13 +279,14 @@ private fun AlbumHeader(
 // =====================================================================
 
 /**
- * Individual track row component in the tracklist.
+ * Individual track row component in the tracklist with favorite button.
  */
 @Composable
 private fun SongRowItem(
     index: Int,
     song: Song,
     onSongClick: (Song) -> Unit,
+    onToggleStarSong: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -315,6 +339,15 @@ private fun SongRowItem(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline
         )
+
+        // Favorite Star Button for Song
+        IconButton(onClick = onToggleStarSong) {
+            Icon(
+                imageVector = if (song.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                contentDescription = if (song.isStarred) "Desfavoritar" else "Favoritar",
+                tint = if (song.isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

@@ -1,13 +1,18 @@
 package com.example.substream.player
 
+import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import com.example.substream.BuildConfig
 import com.example.substream.data.api.Song
 import com.example.substream.data.api.SubsonicAuthUtil
+import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,18 +36,15 @@ data class PlayerState(
 // =====================================================================
 
 /**
- * Manager class encapsulating ExoPlayer logic for streaming audio from Navidrome.
+ * Manager class connecting to PlaybackService via MediaController.
  * Registered as a Singleton in Koin.
  */
 class PlayerManager(
-    context: Context,
+    private val context: Context,
 ) {
 
-    private val player: ExoPlayer by lazy {
-        ExoPlayer.Builder(context).build().apply {
-            addListener(playerListener)
-        }
-    }
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var controller: MediaController? = null
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
@@ -54,17 +56,48 @@ class PlayerManager(
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             val isBuffering = playbackState == Player.STATE_BUFFERING
+            val duration = controller?.duration?.coerceAtLeast(0L) ?: 0L
             _playerState.value = _playerState.value.copy(
                 isBuffering = isBuffering,
-                durationMs = player.duration.coerceAtLeast(0L)
+                durationMs = duration
             )
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val duration = controller?.duration?.coerceAtLeast(0L) ?: 0L
             _playerState.value = _playerState.value.copy(
-                durationMs = player.duration.coerceAtLeast(0L)
+                durationMs = duration
             )
         }
+    }
+
+    init {
+        initializeController()
+    }
+
+    private fun initializeController() {
+        val sessionToken = SessionToken(
+            context,
+            ComponentName(context, PlaybackService::class.java)
+        )
+        controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
+        controllerFuture?.addListener({
+            try {
+                val mediaController = controllerFuture?.get()
+                controller = mediaController
+                mediaController?.addListener(playerListener)
+
+                mediaController?.let { p ->
+                    _playerState.value = _playerState.value.copy(
+                        isPlaying = p.isPlaying,
+                        isBuffering = p.playbackState == Player.STATE_BUFFERING,
+                        durationMs = p.duration.coerceAtLeast(0L)
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }, ContextCompat.getMainExecutor(context))
     }
 
     /**
@@ -95,7 +128,7 @@ class PlayerManager(
     }
 
     /**
-     * Plays a song by preparing and starting ExoPlayer with the Navidrome stream URL.
+     * Plays a song by preparing and starting the MediaController with the Navidrome stream URL.
      */
     fun playSong(song: Song) {
         val streamUrl = getStreamUrl(song.id)
@@ -104,6 +137,7 @@ class PlayerManager(
             .setTitle(song.title)
             .setArtist(song.artist ?: "Artista Desconhecido")
             .setAlbumTitle(song.album ?: "")
+            .setArtworkUri(getCoverArtUrl(song.coverArt)?.let { Uri.parse(it) })
             .build()
 
         val mediaItem = MediaItem.Builder()
@@ -117,37 +151,44 @@ class PlayerManager(
             isBuffering = true
         )
 
-        player.setMediaItem(mediaItem)
-        player.prepare()
-        player.play()
+        controller?.let { player ->
+            player.setMediaItem(mediaItem)
+            player.prepare()
+            player.play()
+        }
     }
 
     fun play() {
-        if (player.playbackState == Player.STATE_IDLE) {
-            player.prepare()
+        controller?.let { player ->
+            if (player.playbackState == Player.STATE_IDLE) {
+                player.prepare()
+            }
+            player.play()
         }
-        player.play()
     }
 
     fun pause() {
-        player.pause()
+        controller?.pause()
     }
 
     fun togglePlayPause() {
-        if (player.isPlaying) {
-            pause()
-        } else {
-            play()
+        controller?.let { player ->
+            if (player.isPlaying) {
+                player.pause()
+            } else {
+                player.play()
+            }
         }
     }
 
     fun stop() {
-        player.stop()
+        controller?.stop()
         _playerState.value = PlayerState()
     }
 
     fun release() {
-        player.removeListener(playerListener)
-        player.release()
+        controller?.removeListener(playerListener)
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controller = null
     }
 }
