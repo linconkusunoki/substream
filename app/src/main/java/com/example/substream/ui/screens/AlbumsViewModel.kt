@@ -2,7 +2,6 @@ package com.example.substream.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.substream.BuildConfig
 import com.example.substream.data.api.Album
 import com.example.substream.data.repository.SubsonicRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,16 +42,13 @@ class AlbumsViewModel(
     val uiState: StateFlow<AlbumsState> = _uiState.asStateFlow()
 
     /**
-     * Triggers loading of albums using server credentials from BuildConfig.
+     * Triggers loading of albums from the signed-in server.
      */
     fun loadAlbums() {
         _uiState.value = AlbumsState.Loading
 
         viewModelScope.launch {
-            val user = BuildConfig.NAVIDROME_USER
-            val pass = BuildConfig.NAVIDROME_PASS
-
-            val result = repository.getAlbums(user, pass)
+            val result = repository.getAlbums()
 
             result.fold(
                 onSuccess = { albums ->
@@ -95,8 +91,6 @@ class AlbumsViewModel(
      */
     fun getCoverArtUrl(coverArtId: String?): String? {
         if (coverArtId.isNullOrEmpty()) return null
-        val user = BuildConfig.NAVIDROME_USER
-        val pass = BuildConfig.NAVIDROME_PASS
-        return repository.getCoverArtUrl(coverArtId, user, pass)
+        return repository.getCoverArtUrl(coverArtId)
     }
 }

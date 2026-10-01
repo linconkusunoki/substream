@@ -39,16 +39,16 @@ class PingViewModel(
     val uiState: StateFlow<PingState> = _uiState.asStateFlow()
 
     /**
-     * Triggers the ping action to the server.
+     * Triggers the ping action against the server the user is signed in to.
      */
-    fun testConnection(user: String, pass: String) {
+    fun testConnection() {
         // Update state to Loading immediately
         _uiState.value = PingState.Loading
 
         // viewModelScope ensures the Coroutine is tied to the ViewModel's lifecycle.
         // If the screen is destroyed, the network request is automatically canceled.
         viewModelScope.launch {
-            val result = repository.pingServer(user, pass)
+            val result = repository.pingServer()
 
             result.fold(
                 onSuccess = { pingData ->

@@ -2,14 +2,18 @@ package com.example.substream.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -20,21 +24,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.substream.BuildConfig
+import com.example.substream.data.preferences.ServerPreferences
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 /**
- * Placeholder Settings tab: shows the active server and lets the user ping it.
- * Add real preferences (download path, transcoding, theme) here when needed.
+ * Settings tab: shows the connected server, verifies the stored credentials, and
+ * allows changing the server or logging out.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: PingViewModel = koinViewModel()
+    onChangeServer: () -> Unit = {},
+    serverPreferences: ServerPreferences = koinInject(),
+    viewModel: PingViewModel = koinViewModel(),
 ) {
+    val config by serverPreferences.config.collectAsState()
     val state by viewModel.uiState.collectAsState()
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             TopAppBar(
                 title = { Text("Settings", fontWeight = FontWeight.Bold) },
@@ -63,28 +72,21 @@ fun SettingsScreen(
                 ) {
                     Text("Server", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = BuildConfig.NAVIDROME_URL.ifEmpty { "Not configured" },
+                        text = config?.url ?: "Not configured",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "User: ${BuildConfig.NAVIDROME_USER.ifEmpty { "Not configured" }}",
+                        text = "User: ${config?.username ?: "Not configured"}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Button(
-                onClick = {
-                    viewModel.testConnection(BuildConfig.NAVIDROME_USER, BuildConfig.NAVIDROME_PASS)
-                },
-                enabled = state !is PingState.Loading
-            ) {
-                Text("Test connection")
-            }
-
             when (val current = state) {
+                is PingState.Loading -> CircularProgressIndicator()
+
                 is PingState.Success -> Text(
                     text = "Connected • API ${current.data.version}",
                     color = MaterialTheme.colorScheme.primary
@@ -95,7 +97,33 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.error
                 )
 
-                else -> Unit
+                PingState.Idle -> Unit
+            }
+
+            OutlinedButton(
+                onClick = viewModel::testConnection,
+                enabled = state !is PingState.Loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Test connection")
+            }
+
+            OutlinedButton(
+                onClick = onChangeServer,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Change server")
+            }
+
+            Button(
+                onClick = serverPreferences::logout,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Log out")
             }
         }
     }

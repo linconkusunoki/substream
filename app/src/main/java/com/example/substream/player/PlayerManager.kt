@@ -9,9 +9,8 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
-import com.example.substream.BuildConfig
 import com.example.substream.data.api.Song
-import com.example.substream.data.api.SubsonicAuthUtil
+import com.example.substream.data.preferences.ServerPreferences
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +51,7 @@ data class PlayerState(
  */
 class PlayerManager(
     private val context: Context,
+    private val serverPreferences: ServerPreferences,
 ) {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -61,6 +61,9 @@ class PlayerManager(
     private var positionUpdateJob: Job? = null
 
     private var currentPlaylist: List<Song> = emptyList()
+
+    // Declared before init so the cache collector below never sees a null map.
+    private val coverArtCache = mutableMapOf<String, String>()
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
@@ -113,6 +116,15 @@ class PlayerManager(
     }
 
     init {
+        // Cached URLs carry the old server's host and token, so drop them on switch.
+        // Logging out also stops playback: the session would keep streaming the old
+        // server's audio with credentials the user just revoked.
+        scope.launch {
+            serverPreferences.config.collect { server ->
+                coverArtCache.clear()
+                if (server == null) stop()
+            }
+        }
         initializeController()
     }
 
@@ -167,21 +179,12 @@ class PlayerManager(
         positionUpdateJob = null
     }
 
-    private val coverArtCache = mutableMapOf<String, String>()
-
     /**
      * Constructs the authenticated streaming URL for a given song ID.
+     * Returns null when nobody is signed in.
      */
-    fun getStreamUrl(songId: String): String {
-        val baseUrl = BuildConfig.NAVIDROME_URL
-        val user = BuildConfig.NAVIDROME_USER
-        val pass = BuildConfig.NAVIDROME_PASS
-
-        val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
-        val cleanBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-
-        return "${cleanBaseUrl}rest/stream.view?id=$songId&u=$user&t=${authParams.token}&s=${authParams.salt}&v=1.16.1&c=SubStream"
-    }
+    fun getStreamUrl(songId: String): String? =
+        serverPreferences.activeServer?.authenticatedUrl("stream.view", "id" to songId)
 
     /**
      * Constructs the authenticated cover art URL for a given coverArt ID.
@@ -190,13 +193,9 @@ class PlayerManager(
      */
     fun getCoverArtUrl(coverArtId: String?): String? {
         if (coverArtId.isNullOrEmpty()) return null
+        val config = serverPreferences.activeServer ?: return null
         return coverArtCache.getOrPut(coverArtId) {
-            val baseUrl = BuildConfig.NAVIDROME_URL
-            val user = BuildConfig.NAVIDROME_USER
-            val pass = BuildConfig.NAVIDROME_PASS
-            val authParams = SubsonicAuthUtil.generateTokenAndSalt(pass)
-            val cleanBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-            "${cleanBaseUrl}rest/getCoverArt.view?id=$coverArtId&u=$user&t=${authParams.token}&s=${authParams.salt}&v=1.16.1&c=SubStream"
+            config.authenticatedUrl("getCoverArt.view", "id" to coverArtId)
         }
     }
 
@@ -205,10 +204,9 @@ class PlayerManager(
      */
     fun playSongs(songs: List<Song>, startIndex: Int = 0) {
         if (songs.isEmpty()) return
-        currentPlaylist = songs
 
-        val mediaItems = songs.map { song ->
-            val streamUrl = getStreamUrl(song.id)
+        val mediaItems = songs.mapNotNull { song ->
+            val streamUrl = getStreamUrl(song.id) ?: return@mapNotNull null
             val mediaMetadata = MediaMetadata.Builder()
                 .setTitle(song.title)
                 .setArtist(song.artist ?: "Unknown Artist")
@@ -222,6 +220,9 @@ class PlayerManager(
                 .setMediaMetadata(mediaMetadata)
                 .build()
         }
+        if (mediaItems.isEmpty()) return
+
+        currentPlaylist = songs
 
         val initialSong = songs.getOrNull(startIndex) ?: songs[0]
         _playerState.value = _playerState.value.copy(

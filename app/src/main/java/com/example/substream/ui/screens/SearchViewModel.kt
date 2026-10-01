@@ -2,7 +2,6 @@ package com.example.substream.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.substream.BuildConfig
 import com.example.substream.data.api.Album
 import com.example.substream.data.api.SearchResult
 import com.example.substream.data.api.Song
@@ -160,8 +159,6 @@ class SearchViewModel(
      */
     fun getCoverArtUrl(coverArtId: String?): String? {
         if (coverArtId.isNullOrEmpty()) return null
-        val user = BuildConfig.NAVIDROME_USER
-        val pass = BuildConfig.NAVIDROME_PASS
-        return repository.getCoverArtUrl(coverArtId, user, pass)
+        return repository.getCoverArtUrl(coverArtId)
     }
 }

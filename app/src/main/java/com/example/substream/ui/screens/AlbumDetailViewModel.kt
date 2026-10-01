@@ -3,7 +3,6 @@ package com.example.substream.ui.screens
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.substream.BuildConfig
 import com.example.substream.data.api.AlbumDetail
 import com.example.substream.data.api.Song
 import com.example.substream.data.repository.SubsonicRepository
@@ -57,10 +56,7 @@ class AlbumDetailViewModel(
         _uiState.value = AlbumDetailState.Loading
 
         viewModelScope.launch {
-            val user = BuildConfig.NAVIDROME_USER
-            val pass = BuildConfig.NAVIDROME_PASS
-
-            val result = repository.getAlbumDetails(user, pass, albumId)
+            val result = repository.getAlbumDetails(albumId)
 
             result.fold(
                 onSuccess = { detail ->
@@ -123,8 +119,6 @@ class AlbumDetailViewModel(
      */
     fun getCoverArtUrl(coverArtId: String?): String? {
         if (coverArtId.isNullOrEmpty()) return null
-        val user = BuildConfig.NAVIDROME_USER
-        val pass = BuildConfig.NAVIDROME_PASS
-        return repository.getCoverArtUrl(coverArtId, user, pass)
+        return repository.getCoverArtUrl(coverArtId)
     }
 }

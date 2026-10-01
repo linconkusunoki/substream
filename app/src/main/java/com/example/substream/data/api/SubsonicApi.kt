@@ -23,7 +23,15 @@ data class SubsonicResponse(
     val searchResult3: SearchResult3? = null,
     val artists: ArtistsContainer? = null,
     val playlists: PlaylistsContainer? = null,
-    val starred2: StarredContainer? = null
+    val starred2: StarredContainer? = null,
+    val error: SubsonicError? = null
+)
+
+/** Subsonic replies with HTTP 200 and status="failed" when credentials are rejected. */
+@Serializable
+data class SubsonicError(
+    val code: Int = 0,
+    val message: String? = null
 )
 
 // Alias for backward compatibility with existing ping references
@@ -148,9 +156,6 @@ interface SubsonicApiService {
 
     @GET("rest/ping.view")
     suspend fun ping(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"
@@ -158,9 +163,6 @@ interface SubsonicApiService {
 
     @GET("rest/getAlbumList2.view")
     suspend fun getAlbums(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("type") type: String = "newest",
         @Query("size") size: Int = 20,
         @Query("v") version: String = "1.16.1",
@@ -170,9 +172,6 @@ interface SubsonicApiService {
 
     @GET("rest/getAlbum.view")
     suspend fun getAlbum(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("id") albumId: String,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
@@ -181,9 +180,6 @@ interface SubsonicApiService {
 
     @GET("rest/search3.view")
     suspend fun search3(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("query") query: String,
         @Query("artistCount") artistCount: Int = 20,
         @Query("albumCount") albumCount: Int = 20,
@@ -195,9 +191,6 @@ interface SubsonicApiService {
 
     @GET("rest/getArtists.view")
     suspend fun getArtists(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("type") type: String = "artists",
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
@@ -206,9 +199,6 @@ interface SubsonicApiService {
 
     @GET("rest/getPlaylists.view")
     suspend fun getPlaylists(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"
@@ -216,9 +206,6 @@ interface SubsonicApiService {
 
     @GET("rest/getStarred2.view")
     suspend fun getStarred(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"
@@ -226,9 +213,6 @@ interface SubsonicApiService {
 
     @GET("rest/star.view")
     suspend fun star(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("id") id: String? = null,
         @Query("albumId") albumId: String? = null,
         @Query("artistId") artistId: String? = null,
@@ -239,9 +223,6 @@ interface SubsonicApiService {
 
     @GET("rest/unstar.view")
     suspend fun unstar(
-        @Query("u") user: String,
-        @Query("t") token: String,
-        @Query("s") salt: String,
         @Query("id") id: String? = null,
         @Query("albumId") albumId: String? = null,
         @Query("artistId") artistId: String? = null,

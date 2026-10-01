@@ -6,14 +6,15 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
-import com.example.substream.BuildConfig
 import com.example.substream.data.api.ApiClientFactory
+import com.example.substream.data.preferences.ServerPreferences
 import com.example.substream.data.repository.SubsonicRepository
 import com.example.substream.player.PlayerManager
 import com.example.substream.player.cache.MediaCacheManager
 import com.example.substream.ui.screens.AlbumDetailViewModel
 import com.example.substream.ui.screens.AlbumsViewModel
 import com.example.substream.ui.screens.LibraryViewModel
+import com.example.substream.ui.screens.LoginViewModel
 import com.example.substream.ui.screens.PingViewModel
 import com.example.substream.ui.screens.SearchViewModel
 import org.koin.android.ext.koin.androidContext
@@ -26,14 +27,17 @@ import org.koin.dsl.module
 val appModule = module {
 
     // 1. single {} creates a Singleton (only one instance for the whole app)
-    // Here we provide the Retrofit API Service
+    // Signed-in server credentials: encrypted at rest, shared by every layer.
+    single { ServerPreferences(androidContext()) }
+
+    // The Retrofit service resolves host + auth from ServerPreferences per request
     single {
-        ApiClientFactory.createService(BuildConfig.NAVIDROME_URL)
+        ApiClientFactory.createService(get())
     }
 
     // 2. The get() function magically finds the dependency needed
     single {
-        SubsonicRepository(api = get())
+        SubsonicRepository(api = get(), serverPreferences = get())
     }
 
     // 3. Media Cache Manager & DataSource Factory (Singleton instance)
@@ -55,10 +59,14 @@ val appModule = module {
 
     // PlayerManager initialized with Android Context
     single {
-        PlayerManager(context = androidContext())
+        PlayerManager(context = androidContext(), serverPreferences = get())
     }
 
     // 4. viewModel {} tells Koin how to build our ViewModels
+    viewModel {
+        LoginViewModel(repository = get(), serverPreferences = get())
+    }
+
     viewModel {
         PingViewModel(repository = get())
     }

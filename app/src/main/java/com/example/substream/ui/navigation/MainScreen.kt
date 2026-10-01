@@ -26,22 +26,42 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.substream.data.preferences.ServerPreferences
 import com.example.substream.player.PlayerManager
 import com.example.substream.ui.components.PlayerBar
 import com.example.substream.ui.screens.AlbumDetailScreen
 import com.example.substream.ui.screens.AlbumsScreen
 import com.example.substream.ui.screens.LibraryScreen
+import com.example.substream.ui.screens.LoginScreen
 import com.example.substream.ui.screens.NowPlayingScreen
 import com.example.substream.ui.screens.SearchScreen
 import com.example.substream.ui.screens.SettingsScreen
 import org.koin.compose.koinInject
 
 /**
- * Main container screen featuring a Material 3 Scaffold, Bottom Navigation Bar,
- * fixed Mini Player above the bottom bar, and NavHost for app navigation.
+ * Root of the app: shows [LoginScreen] until a server is stored, then the main
+ * Material 3 Scaffold with Bottom Navigation Bar, fixed Mini Player above the bottom
+ * bar, and a NavHost for app navigation.
+ *
+ * The branch is keyed on `ServerPreferences.config`, so saving credentials from the
+ * login form (or logging out from Settings) swaps the whole tree without a navigation
+ * event, and the main NavHost is disposed on logout.
  */
 @Composable
 fun MainScreen(
+    serverPreferences: ServerPreferences = koinInject(),
+) {
+    val config by serverPreferences.config.collectAsState()
+
+    if (config == null) {
+        LoginScreen()
+    } else {
+        MainNavScreen()
+    }
+}
+
+@Composable
+private fun MainNavScreen(
     navController: NavHostController = rememberNavController(),
     playerManager: PlayerManager = koinInject(),
 ) {
@@ -76,9 +96,13 @@ fun MainScreen(
     }
 
     Scaffold(
-        // Every destination renders its own TopAppBar, which already handles the status bar
-        // insets. Without this the outer Scaffold would add them a second time, leaving an
-        // empty strip above each screen.
+        // This Scaffold owns the window insets for everything below it, so destinations
+        // pass contentWindowInsets = WindowInsets(0.dp) and manage only their TopAppBar:
+        //  - status bar: handled here (zeroed) + again by each TopAppBar, hence the zero.
+        //  - navigation bar: the bottomBar below already sits on it; letting a nested
+        //    Scaffold add it too leaves a gap between the tab bar and every list, and
+        //    clips the last row. Modifier.padding does not consume insets, which is why
+        //    each destination has to opt out explicitly.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             Column {
@@ -131,7 +155,12 @@ fun MainScreen(
                 navController = navController,
                 startDestination = Screen.Home.route,
             ) {
-                // 1. Home
+                // 1. Reconfigure the server (Settings > Change server)
+                composable(Screen.Login.route) {
+                    LoginScreen(onSaved = { navController.popBackStack() })
+                }
+
+                // 2. Home
                 composable(Screen.Home.route) {
                     AlbumsScreen(
                         title = "Home",
@@ -165,7 +194,9 @@ fun MainScreen(
 
                 // 4. Settings
                 composable(Screen.Settings.route) {
-                    SettingsScreen()
+                    SettingsScreen(
+                        onChangeServer = { navController.navigate(Screen.Login.route) },
+                    )
                 }
 
                 // 5. Album Detail (with albumId argument)

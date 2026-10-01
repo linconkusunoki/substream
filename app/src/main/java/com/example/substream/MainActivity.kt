@@ -8,6 +8,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import com.example.substream.player.PlayerManager
 import com.example.substream.ui.navigation.MainScreen
 import com.example.substream.ui.theme.SubStreamTheme
@@ -30,7 +33,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SubStreamTheme {
-                MainScreen()
+                // MaterialTheme only provides the scheme, it does not paint anything.
+                // Without this Surface a screen that has no Scaffold of its own (LoginScreen)
+                // shows the window background through, which stays white in dark mode.
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    MainScreen()
+                }
             }
         }
     }

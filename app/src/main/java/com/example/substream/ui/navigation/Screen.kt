@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * Defines all navigation destinations/routes in the SubStream app.
  */
 sealed class Screen(val route: String) {
+    data object Login : Screen("login")
     data object Home : Screen("home")
     data object Library : Screen("library")
     data object Search : Screen("search")

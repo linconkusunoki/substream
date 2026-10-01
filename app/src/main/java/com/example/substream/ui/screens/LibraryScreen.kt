@@ -2,8 +2,11 @@ package com.example.substream.ui.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -17,14 +20,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.substream.data.api.Album
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -41,7 +43,10 @@ fun LibraryScreen(
     val playlistsState by viewModel.playlists.collectAsState()
     val starredState by viewModel.starred.collectAsState()
 
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // The pager is the single source of truth for the selected tab: tab clicks animate
+    // the page and swipes move the selection, so the two can never disagree.
+    val pagerState = rememberPagerState { LibraryTab.entries.size }
+    val scope = rememberCoroutineScope()
 
     // Load every section once when the hub enters composition: tab labels show the counts.
     LaunchedEffect(Unit) {
@@ -58,6 +63,7 @@ fun LibraryScreen(
     )
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             Column {
                 TopAppBar(
@@ -67,19 +73,19 @@ fun LibraryScreen(
                     )
                 )
                 ScrollableTabRow(
-                    selectedTabIndex = selectedTab,
+                    selectedTabIndex = pagerState.currentPage,
                     edgePadding = 16.dp,
                     containerColor = MaterialTheme.colorScheme.surface,
                 ) {
                     LibraryTab.entries.forEachIndexed { index, tab ->
                         val count = counts[index]
                         Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
                             text = {
                                 Text(
                                     text = if (count != null) "${tab.label} ($count)" else tab.label,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                    fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal
                                 )
                             }
                         )
@@ -88,12 +94,13 @@ fun LibraryScreen(
             }
         }
     ) { paddingValues ->
-        Box(
+        HorizontalPager(
+            state = pagerState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-        ) {
-            when (LibraryTab.entries[selectedTab]) {
+        ) { page ->
+            when (LibraryTab.entries[page]) {
                 LibraryTab.Albums -> AlbumsScreen(
                     onAlbumClick = onAlbumClick,
                     showTopBar = false,

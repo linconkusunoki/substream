@@ -1,16 +1,7 @@
-import java.util.Properties
-import java.io.FileInputStream
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("org.jetbrains.kotlin.plugin.serialization") version "2.4.20"
-}
-
-val localProperties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localProperties.load(FileInputStream(localPropertiesFile))
 }
 
 android {
@@ -27,10 +18,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        buildConfigField("String", "NAVIDROME_URL", "\"${localProperties.getProperty("NAVIDROME_URL") ?: ""}\"")
-        buildConfigField("String", "NAVIDROME_USER", "\"${localProperties.getProperty("NAVIDROME_USER") ?: ""}\"")
-        buildConfigField("String", "NAVIDROME_PASS", "\"${localProperties.getProperty("NAVIDROME_PASS") ?: ""}\"")
     }
 
     buildTypes {
@@ -46,7 +33,6 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 }
 
