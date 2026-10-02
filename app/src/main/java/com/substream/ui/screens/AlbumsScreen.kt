@@ -1,5 +1,6 @@
 package com.substream.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,6 +63,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun AlbumsScreen(
     onAlbumClick: (Album) -> Unit = {},
+    onArtistClick: (String, String) -> Unit = { _, _ -> },
     onSearchClick: () -> Unit = {},
     title: String = "Albums",
     showTopBar: Boolean = true,
@@ -106,6 +108,7 @@ fun AlbumsScreen(
                         AlbumGrid(
                             albums = state.albums,
                             onAlbumClick = onAlbumClick,
+                            onArtistClick = onArtistClick,
                             onToggleStar = { album -> viewModel.toggleStarAlbum(album) },
                             getCoverArtUrl = { coverArt -> viewModel.getCoverArtUrl(coverArt) }
                         )
@@ -159,6 +162,7 @@ fun AlbumsScreen(
 fun AlbumGrid(
     albums: List<Album>,
     onAlbumClick: (Album) -> Unit,
+    onArtistClick: (String, String) -> Unit,
     onToggleStar: (Album) -> Unit,
     getCoverArtUrl: (String?) -> String?,
     modifier: Modifier = Modifier
@@ -178,6 +182,7 @@ fun AlbumGrid(
                 album = album,
                 coverArtUrl = getCoverArtUrl(album.coverArt),
                 onClick = { onAlbumClick(album) },
+                onArtistClick = { artistId, artistName -> onArtistClick(artistId, artistName) },
                 onToggleStar = { onToggleStar(album) }
             )
         }
@@ -196,6 +201,7 @@ fun AlbumCard(
     album: Album,
     coverArtUrl: String?,
     onClick: () -> Unit,
+    onArtistClick: (artistId: String, artistName: String) -> Unit,
     onToggleStar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -248,13 +254,28 @@ fun AlbumCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Text(
-                    text = album.artist ?: "Unknown Artist",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                // Servers that index artists do send artistId here; the ones that don't leave
+                // it null, and then the name stays plain text rather than a dead link.
+                val artistName = album.artist ?: "Unknown Artist"
+                val artistId = album.artistId
+                if (artistId != null) {
+                    Text(
+                        text = artistName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable { onArtistClick(artistId, artistName) }
+                    )
+                } else {
+                    Text(
+                        text = artistName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

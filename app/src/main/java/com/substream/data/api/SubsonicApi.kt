@@ -20,6 +20,7 @@ data class SubsonicResponse(
     val version: String,
     val albumList2: AlbumListContainer? = null,
     val album: AlbumDetail? = null,
+    val artist: ArtistDetail? = null,
     val searchResult3: SearchResult3? = null,
     val artists: ArtistsContainer? = null,
     val playlists: PlaylistsContainer? = null,
@@ -71,6 +72,7 @@ data class Playlist(
 
 @Serializable
 data class StarredContainer(
+    val artist: List<Artist> = emptyList(),
     val album: List<Album> = emptyList(),
     val song: List<Song> = emptyList()
 )
@@ -96,11 +98,28 @@ data class Artist(
     val isStarred: Boolean get() = starred != null
 }
 
+/**
+ * getArtist.view returns an artist and its albums. The spec sends no tracklist with it, so the
+ * songs tab is filled from a separate search (see SubsonicRepository.getArtistSongs).
+ */
+@Serializable
+data class ArtistDetail(
+    val id: String,
+    val name: String,
+    val coverArt: String? = null,
+    val albumCount: Int? = null,
+    val album: List<Album> = emptyList(),
+    val starred: String? = null
+) {
+    val isStarred: Boolean get() = starred != null
+}
+
 @Serializable
 data class Album(
     val id: String,
     val name: String,
     val artist: String? = null,
+    val artistId: String? = null,
     val coverArt: String? = null,
     val songCount: Int? = null,
     val year: Int? = null,
@@ -192,6 +211,14 @@ interface SubsonicApiService {
     @GET("rest/getArtists.view")
     suspend fun getArtists(
         @Query("type") type: String = "artists",
+        @Query("v") version: String = "1.16.1",
+        @Query("c") client: String = "SubStream",
+        @Query("f") format: String = "json"
+    ): SubsonicResponseWrapper
+
+    @GET("rest/getArtist.view")
+    suspend fun getArtist(
+        @Query("id") artistId: String,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"

@@ -36,6 +36,7 @@ import com.substream.player.PlayerManager
 import com.substream.ui.components.PlayerBar
 import com.substream.ui.screens.AlbumDetailScreen
 import com.substream.ui.screens.AlbumsScreen
+import com.substream.ui.screens.ArtistDetailScreen
 import com.substream.ui.screens.LibraryScreen
 import com.substream.ui.screens.LoginScreen
 import com.substream.ui.screens.NowPlayingScreen
@@ -104,6 +105,28 @@ private fun MainNavScreen(
         }
     }
 
+    // Tapping a tab in the bottom bar always lands that tab on its home screen, even when
+    // the tab is already selected or the user left it deep in the stack (an album detail,
+    // Settings > change server) or scrolled halfway down a list. Same pop as [navigateToTab]
+    // but without restoreState: the tab comes back as a fresh entry, so Library's pager
+    // lands on the first page and every list starts at the top.
+    val navigateToTabRoot: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+        }
+    }
+
+    // Artists are linked from a dozen places (artist grids, album and song subtitles, the search
+    // results) but only the screens that carry an artistId can offer the link, so every caller
+    // passes the same id + name pair and the name is dropped here. ArtistDetailScreen re-reads
+    // the name from the server rather than trusting the caller's copy.
+    val navigateToArtist: (String, String) -> Unit = { artistId, _ ->
+        navController.navigate(Screen.ArtistDetail.createRoute(artistId))
+    }
+
     Scaffold(
         // This Scaffold owns the window insets for everything below it, so destinations
         // pass contentWindowInsets = WindowInsets(0.dp) and manage only their TopAppBar:
@@ -131,9 +154,7 @@ private fun MainNavScreen(
 
                         NavigationBarItem(
                             selected = isSelected,
-                            onClick = {
-                                if (!isSelected) navigateToTab(item.route)
-                            },
+                            onClick = { navigateToTabRoot(item.route) },
                             icon = {
                                 Icon(
                                     imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
@@ -168,6 +189,7 @@ private fun MainNavScreen(
                         onAlbumClick = { album ->
                             navController.navigate(Screen.AlbumDetail.createRoute(album.id))
                         },
+                        onArtistClick = navigateToArtist,
                         onSearchClick = {
                             navigateToTab(Screen.Search.route)
                         },
@@ -180,6 +202,7 @@ private fun MainNavScreen(
                         onAlbumClick = { album ->
                             navController.navigate(Screen.AlbumDetail.createRoute(album.id))
                         },
+                        onArtistClick = navigateToArtist,
                     )
                 }
 
@@ -189,6 +212,7 @@ private fun MainNavScreen(
                         onAlbumClick = { album ->
                             navController.navigate(Screen.AlbumDetail.createRoute(album.id))
                         },
+                        onArtistClick = navigateToArtist,
                         onBackClick = { navController.popBackStack() },
                     )
                 }
@@ -211,6 +235,24 @@ private fun MainNavScreen(
                     AlbumDetailScreen(
                         albumId = albumId,
                         onBackClick = { navController.popBackStack() },
+                        onArtistClick = navigateToArtist,
+                    )
+                }
+
+                // 6. Artist Detail (with artistId argument)
+                composable(
+                    route = Screen.ArtistDetail.route,
+                    arguments = listOf(
+                        navArgument(Screen.ArtistDetail.ARG_ARTIST_ID) { type = NavType.StringType },
+                    ),
+                ) { backStackEntry ->
+                    val artistId = backStackEntry.arguments?.getString(Screen.ArtistDetail.ARG_ARTIST_ID) ?: ""
+                    ArtistDetailScreen(
+                        artistId = artistId,
+                        onBackClick = { navController.popBackStack() },
+                        onAlbumClick = { album ->
+                            navController.navigate(Screen.AlbumDetail.createRoute(album.id))
+                        },
                     )
                 }
             }
@@ -235,6 +277,16 @@ private fun MainNavScreen(
                     scope.launch {
                         playerSheetState.hide()
                         isPlayerExpanded = false
+                    }
+                },
+                // The artist line links out of the sheet, so the sheet has to be gone before
+                // navigating or it stays on top of the artist screen it just opened. hide()
+                // suspending is what makes the ordering correct.
+                onArtistClick = { artistId, _ ->
+                    scope.launch {
+                        playerSheetState.hide()
+                        isPlayerExpanded = false
+                        navController.navigate(Screen.ArtistDetail.createRoute(artistId))
                     }
                 },
                 modifier = Modifier.fillMaxSize(),

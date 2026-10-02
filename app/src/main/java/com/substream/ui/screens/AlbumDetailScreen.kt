@@ -70,6 +70,7 @@ import java.util.Locale
 fun AlbumDetailScreen(
     albumId: String,
     onBackClick: (() -> Unit)? = null,
+    onArtistClick: (String, String) -> Unit = { _, _ -> },
     viewModel: AlbumDetailViewModel = koinViewModel(),
     playerManager: PlayerManager = koinInject(),
 ) {
@@ -129,6 +130,7 @@ fun AlbumDetailScreen(
                             val index = state.albumDetail.song.indexOf(song).coerceAtLeast(0)
                             playerManager.playSongs(state.albumDetail.song, index)
                         },
+                        onArtistClick = onArtistClick,
                         onToggleStarAlbum = { albumDetail -> viewModel.toggleStarAlbum(albumDetail) },
                         onToggleStarSong = { song -> viewModel.toggleStarSong(song) }
                     )
@@ -150,6 +152,7 @@ private fun AlbumDetailContent(
     albumDetail: AlbumDetail,
     getCoverArtUrl: (String?) -> String?,
     onSongClick: (Song) -> Unit,
+    onArtistClick: (String, String) -> Unit,
     onToggleStarAlbum: (AlbumDetail) -> Unit,
     onToggleStarSong: (Song) -> Unit,
     modifier: Modifier = Modifier,
@@ -162,6 +165,7 @@ private fun AlbumDetailContent(
             AlbumHeader(
                 albumDetail = albumDetail,
                 coverArtUrl = getCoverArtUrl(albumDetail.coverArt),
+                onArtistClick = onArtistClick,
                 onToggleStarAlbum = { onToggleStarAlbum(albumDetail) }
             )
         }
@@ -189,6 +193,7 @@ private fun AlbumDetailContent(
                 index = index + 1,
                 song = song,
                 onSongClick = onSongClick,
+                onArtistClick = onArtistClick,
                 onToggleStarSong = { onToggleStarSong(song) }
             )
         }
@@ -206,6 +211,7 @@ private fun AlbumDetailContent(
 private fun AlbumHeader(
     albumDetail: AlbumDetail,
     coverArtUrl: String?,
+    onArtistClick: (String, String) -> Unit,
     onToggleStarAlbum: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -252,12 +258,23 @@ private fun AlbumHeader(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Artist Name
+        // Artist Name. Linked when the server indexed the artist, plain text when it did not.
+        val headerArtistName = albumDetail.artist ?: "Unknown Artist"
+        val headerArtistId = albumDetail.artistId
         Text(
-            text = albumDetail.artist ?: "Unknown Artist",
+            text = headerArtistName,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            color = if (headerArtistId != null) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            textAlign = TextAlign.Center,
+            modifier = if (headerArtistId != null) {
+                Modifier.clickable { onArtistClick(headerArtistId, headerArtistName) }
+            } else {
+                Modifier
+            }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -291,6 +308,7 @@ private fun SongRowItem(
     index: Int,
     song: Song,
     onSongClick: (Song) -> Unit,
+    onArtistClick: (String, String) -> Unit,
     onToggleStarSong: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -326,12 +344,23 @@ private fun SongRowItem(
             )
 
             if (!song.artist.isNullOrEmpty()) {
+                val rowArtistName = song.artist
+                val rowArtistId = song.artistId
                 Text(
-                    text = song.artist,
+                    text = rowArtistName,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (rowArtistId != null) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = if (rowArtistId != null) {
+                        Modifier.clickable { onArtistClick(rowArtistId, rowArtistName) }
+                    } else {
+                        Modifier
+                    }
                 )
             }
         }

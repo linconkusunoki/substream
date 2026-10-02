@@ -3,6 +3,7 @@ package com.substream.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.substream.data.api.Album
+import com.substream.data.api.Artist
 import com.substream.data.api.SearchResult
 import com.substream.data.api.Song
 import com.substream.data.repository.SubsonicRepository
@@ -137,6 +138,32 @@ class SearchViewModel(
             val updatedResult = currentState.result.copy(song = updatedSongs)
             _uiState.value = SearchState.Success(updatedResult)
         }
+    }
+
+    /**
+     * Toggles star/favorite state for an Artist item.
+     */
+    fun toggleStarArtist(artist: Artist) {
+        viewModelScope.launch {
+            val isStarred = artist.isStarred
+            val result = repository.toggleStar(id = artist.id, isStarred = isStarred, isArtist = true)
+            result.onSuccess { newStarred ->
+                updateArtistStarred(artist.id, newStarred)
+            }
+        }
+    }
+
+    private fun updateArtistStarred(artistId: String, newStarred: Boolean) {
+        val currentState = _uiState.value
+        if (currentState !is SearchState.Success) return
+        val updatedArtists = currentState.result.artist.map { artist ->
+            if (artist.id == artistId) {
+                artist.copy(starred = if (newStarred) "starred" else null)
+            } else {
+                artist
+            }
+        }
+        _uiState.value = SearchState.Success(currentState.result.copy(artist = updatedArtists))
     }
 
     private fun updateAlbumStarred(albumId: String, newStarred: Boolean) {

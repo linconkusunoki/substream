@@ -1,5 +1,6 @@
 package com.substream.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +70,7 @@ import java.util.Locale
 @Composable
 fun NowPlayingScreen(
     onBackClick: () -> Unit,
+    onArtistClick: (String, String) -> Unit = { _, _ -> },
     playerManager: PlayerManager = koinInject(),
     modifier: Modifier = Modifier
 ) {
@@ -173,7 +175,7 @@ fun NowPlayingScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // 2. Song Title & Artist Info
-                SongInfoSection(song = currentSong)
+                SongInfoSection(song = currentSong, onArtistClick = onArtistClick)
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -208,6 +210,7 @@ fun NowPlayingScreen(
 @Composable
 private fun SongInfoSection(
     song: Song,
+    onArtistClick: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -225,13 +228,24 @@ private fun SongInfoSection(
 
         Spacer(modifier = Modifier.height(4.dp))
 
+        val artistName = song.artist ?: "Unknown Artist"
+        val artistId = song.artistId
         Text(
-            text = song.artist ?: "Unknown Artist",
+            text = artistName,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (artistId != null) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = if (artistId != null) {
+                Modifier.clickable { onArtistClick(artistId, artistName) }
+            } else {
+                Modifier
+            }
         )
 
         if (!song.album.isNullOrEmpty()) {

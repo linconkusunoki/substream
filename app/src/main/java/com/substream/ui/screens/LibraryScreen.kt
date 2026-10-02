@@ -37,11 +37,13 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun LibraryScreen(
     onAlbumClick: (Album) -> Unit = {},
+    onArtistClick: (String, String) -> Unit = { _, _ -> },
     viewModel: LibraryViewModel = koinViewModel()
 ) {
     val artistsState by viewModel.artists.collectAsState()
     val playlistsState by viewModel.playlists.collectAsState()
     val starredState by viewModel.starred.collectAsState()
+    val starredArtistsState by viewModel.starredArtists.collectAsState()
 
     // The pager is the single source of truth for the selected tab: tab clicks animate
     // the page and swipes move the selection, so the two can never disagree.
@@ -103,12 +105,15 @@ fun LibraryScreen(
             when (LibraryTab.entries[page]) {
                 LibraryTab.Albums -> AlbumsScreen(
                     onAlbumClick = onAlbumClick,
+                    onArtistClick = onArtistClick,
                     showTopBar = false,
                 )
 
                 LibraryTab.Artists -> ArtistsScreen(
                     state = artistsState,
                     onRetry = viewModel::loadArtists,
+                    onArtistClick = { artist -> onArtistClick(artist.id, artist.name) },
+                    onToggleStar = viewModel::toggleStarArtist,
                     getCoverArtUrl = viewModel::getCoverArtUrl,
                 )
 
@@ -120,9 +125,12 @@ fun LibraryScreen(
 
                 LibraryTab.Favorites -> FavoritesScreen(
                     state = starredState,
+                    artistsState = starredArtistsState,
                     onRetry = viewModel::loadStarred,
                     onRemove = viewModel::removeStarred,
+                    onToggleStarArtist = viewModel::toggleStarredArtist,
                     onAlbumClick = onAlbumClick,
+                    onArtistClick = onArtistClick,
                     getCoverArtUrl = viewModel::getCoverArtUrl,
                 )
             }

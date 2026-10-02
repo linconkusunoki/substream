@@ -1,0 +1,554 @@
+package com.substream.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.substream.data.api.Album
+import com.substream.data.api.ArtistDetail
+import com.substream.data.api.Song
+import com.substream.player.PlayerManager
+import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
+
+// =====================================================================
+// 1. MAIN SCREEN COMPOSABLE
+// =====================================================================
+
+/**
+ * Artist Detail Screen: artwork, name and star action over two tabs of content.
+ *
+ * getArtist.view returns albums only, so the songs tab triggers a second request the first time
+ * it is opened (see [ArtistDetailViewModel.loadSongsIfNeeded]).
+ *
+ * @param artistId The ID of the artist to load.
+ * @param onBackClick Optional callback for back navigation.
+ * @param onAlbumClick Callback for album taps, navigating to the album detail.
+ * @param viewModel The Koin-injected ArtistDetailViewModel.
+ * @param playerManager The Koin-injected PlayerManager for media playback.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ArtistDetailScreen(
+    artistId: String,
+    onBackClick: (() -> Unit)? = null,
+    onAlbumClick: (Album) -> Unit = {},
+    viewModel: ArtistDetailViewModel = koinViewModel(),
+    playerManager: PlayerManager = koinInject(),
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(artistId) {
+        viewModel.loadArtist(artistId)
+    }
+
+    Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Artist",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    onBackClick?.let { onClick ->
+                        IconButton(onClick = onClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                )
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            when (val state = uiState) {
+                is ArtistDetailState.Idle, is ArtistDetailState.Loading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+
+                is ArtistDetailState.Error -> {
+                    ErrorContent(
+                        message = state.message,
+                        onRetry = { viewModel.loadArtist(artistId) },
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+
+                is ArtistDetailState.Success -> {
+                    ArtistDetailContent(
+                        artistDetail = state.artistDetail,
+                        songsState = state.songs,
+                        onLoadSongs = viewModel::loadSongsIfNeeded,
+                        getCoverArtUrl = viewModel::getCoverArtUrl,
+                        onAlbumClick = onAlbumClick,
+                        onSongClick = { song ->
+                            val songs = (state.songs as? LoadState.Success)?.items.orEmpty()
+                            playerManager.playSongs(songs, songs.indexOf(song).coerceAtLeast(0))
+                        },
+                        onToggleStarArtist = { viewModel.toggleStarArtist(state.artistDetail) },
+                        onToggleStarSong = viewModel::toggleStarSong,
+                        onPlayAll = { songs -> playerManager.playSongs(songs) },
+                        onShuffleAll = { songs -> playerManager.playSongs(songs.shuffled()) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+// =====================================================================
+// 2. ARTIST DETAIL CONTENT COMPOSABLE
+// =====================================================================
+
+private enum class ArtistTab(val label: String) {
+    Albums("Albums"),
+    Songs("Songs"),
+}
+
+/**
+ * The whole screen is one LazyColumn: artwork, name, controls, tab row and tab content all scroll
+ * together, so nothing is pinned and the content gets the full height of the window.
+ *
+ * That rules out a LazyVerticalGrid for the albums, which cannot be nested in a lazy layout
+ * without a measured height. Instead the albums are emitted as rows of two, one lazy item per
+ * row, which keeps the list lazy and the 2-column look intact.
+ */
+@Composable
+private fun ArtistDetailContent(
+    artistDetail: ArtistDetail,
+    songsState: LoadState<Song>,
+    onLoadSongs: () -> Unit,
+    getCoverArtUrl: (String?) -> String?,
+    onAlbumClick: (Album) -> Unit,
+    onSongClick: (Song) -> Unit,
+    onToggleStarArtist: () -> Unit,
+    onToggleStarSong: (Song) -> Unit,
+    onPlayAll: (List<Song>) -> Unit,
+    onShuffleAll: (List<Song>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val songs = (songsState as? LoadState.Success)?.items.orEmpty()
+
+    // Fetch on first visit to the Songs tab rather than on screen entry. Declared here, not
+    // inside the LazyColumn block, because that scope is not a composable one.
+    LaunchedEffect(selectedTab, songsState) {
+        if (selectedTab == ArtistTab.Songs.ordinal && songsState is LoadState.Idle) {
+            onLoadSongs()
+        }
+    }
+
+    LazyColumn(
+        contentPadding = PaddingValues(bottom = 24.dp),
+        modifier = modifier.fillMaxSize()
+    ) {
+        item(key = "header") {
+            ArtistHeader(
+                artistDetail = artistDetail,
+                coverArtUrl = getCoverArtUrl(artistDetail.coverArt),
+                onToggleStarArtist = onToggleStarArtist,
+                onPlayAll = { onPlayAll(songs) },
+                onShuffleAll = { onShuffleAll(songs) },
+                songsLoaded = songsState !is LoadState.Loading,
+            )
+        }
+
+        item(key = "tabs") {
+            TabRow(selectedTabIndex = selectedTab) {
+                ArtistTab.entries.forEachIndexed { index, tab ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(text = tab.label) }
+                    )
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+
+        when (selectedTab) {
+            ArtistTab.Albums.ordinal -> {
+                if (artistDetail.album.isEmpty()) {
+                    item { EmptyArtistTab("No albums found.") }
+                } else {
+                    val rows = artistDetail.album.chunked(2)
+                    itemsIndexed(
+                        items = rows,
+                        key = { index, row -> "albums-$index-${row.first().id}" }
+                    ) { _, row ->
+                        AlbumCardRow(
+                            albums = row,
+                            onAlbumClick = onAlbumClick,
+                            getCoverArtUrl = getCoverArtUrl,
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                when (songsState) {
+                    is LoadState.Idle -> item { EmptyArtistTab("") }
+
+                    is LoadState.Loading -> item { EmptyArtistTab("") }
+
+                    is LoadState.Error -> item { EmptyArtistTab("No songs found.") }
+
+                    is LoadState.Success -> {
+                        if (songs.isEmpty()) {
+                            item { EmptyArtistTab("No songs found.") }
+                        } else {
+                            itemsIndexed(
+                                items = songs,
+                                key = { _, song -> song.id }
+                            ) { index, song ->
+                                ArtistSongRow(
+                                    index = index + 1,
+                                    song = song,
+                                    onSongClick = onSongClick,
+                                    onToggleStarSong = { onToggleStarSong(song) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One row of the albums list: up to two cards side by side, laid out by weight so the same code
+ * serves both the full rows and the half-empty last one.
+ */
+@Composable
+private fun AlbumCardRow(
+    albums: List<Album>,
+    onAlbumClick: (Album) -> Unit,
+    getCoverArtUrl: (String?) -> String?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        albums.forEach { album ->
+            AlbumCard(
+                album = album,
+                coverArtUrl = getCoverArtUrl(album.coverArt),
+                onClick = { onAlbumClick(album) },
+                // Every album on this screen belongs to this artist, so the header above is
+                // already the destination; the card's own artist line has nowhere to go.
+                onArtistClick = { _, _ -> },
+                onToggleStar = { },
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        if (albums.size == 1) {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+// =====================================================================
+// 3. ARTIST HEADER COMPOSABLE
+// =====================================================================
+
+/**
+ * Full-bleed artist artwork with the name set over its bottom edge.
+ *
+ * The bottom scrim is a real gradient rather than a shadow: the name has to stay legible over
+ * artwork of any brightness, and a drop shadow behind light text on a bright photo does not. It
+ * is anchored to the bottom of the image only, so the top of the photo stays clean.
+ */
+@Composable
+private fun ArtistHeader(
+    artistDetail: ArtistDetail,
+    coverArtUrl: String?,
+    onToggleStarArtist: () -> Unit,
+    onPlayAll: () -> Unit,
+    onShuffleAll: () -> Unit,
+    songsLoaded: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            // Half the available height: enough to read as a hero image without pushing the
+            // name and controls off the fold. Derived from the viewport rather than hardcoded
+            // so it holds on both a phone and a tablet.
+            val heroHeight = maxHeight / 2
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heroHeight)
+            ) {
+                AsyncImage(
+                    model = coverArtUrl,
+                    contentDescription = artistDetail.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                // Transparent through the top, dark at the bottom edge.
+                                colorStops = arrayOf(
+                                    0.0f to Color.Transparent,
+                                    0.45f to Color.Transparent,
+                                    1.0f to Color.Black.copy(alpha = 0.75f),
+                                )
+                            )
+                        )
+                )
+
+                IconButton(
+                    onClick = onToggleStarArtist,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (artistDetail.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                        contentDescription = if (artistDetail.isStarred) "Unfavorite" else "Favorite",
+                        tint = if (artistDetail.isStarred) Color(0xFFFFC107) else Color.White
+                    )
+                }
+
+                val albumCount = artistDetail.albumCount ?: artistDetail.album.size
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp)
+                ) {
+                    Text(
+                        text = artistDetail.name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (albumCount == 1) "1 album" else "$albumCount albums",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.85f)
+                    )
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+        // The songs arrive lazily, so before them there is nothing to play and the buttons
+        // stay disabled rather than silently starting an empty queue.
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilledTonalButton(
+                onClick = onPlayAll,
+                enabled = songsLoaded
+            ) {
+                Icon(imageVector = Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Play all")
+            }
+
+            FilledTonalButton(
+                onClick = onShuffleAll,
+                enabled = songsLoaded
+            ) {
+                Icon(imageVector = Icons.Default.Shuffle, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Shuffle")
+            }
+        }
+        }
+    }
+}
+
+// =====================================================================
+// 4. SONG ROW COMPOSABLE
+// =====================================================================
+
+@Composable
+private fun ArtistSongRow(
+    index: Int,
+    song: Song,
+    onSongClick: (Song) -> Unit,
+    onToggleStarSong: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onSongClick(song) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = song.track?.toString() ?: index.toString(),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(32.dp),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = song.title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (!song.album.isNullOrEmpty()) {
+                Text(
+                    text = song.album,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = formatSongDuration(song.duration),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline
+        )
+
+        IconButton(onClick = onToggleStarSong) {
+            Icon(
+                imageVector = if (song.isStarred) Icons.Filled.Star else Icons.Outlined.StarOutline,
+                contentDescription = if (song.isStarred) "Unfavorite" else "Favorite",
+                tint = if (song.isStarred) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// =====================================================================
+// 5. HELPER FUNCTIONS & ERROR UI
+// =====================================================================
+
+@Composable
+private fun EmptyArtistTab(message: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(160.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (message.isNotEmpty()) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            // No message yet: the songs are still being fetched, so this reserves the space a
+            // message would occupy and stops the list from jumping when it arrives.
+            CircularProgressIndicator()
+        }
+    }
+}
+
+/**
+ * Formats a song duration in seconds to "mm:ss". A third copy of this: the two in AlbumDetailScreen
+ * and SearchScreen are file-private, so sharing one means making it public for a five-line function.
+ */
+private fun formatSongDuration(seconds: Int?): String {
+    if (seconds == null || seconds <= 0) return "--:--"
+    val minutes = seconds / 60
+    val remainingSeconds = seconds % 60
+    return String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, remainingSeconds)
+}

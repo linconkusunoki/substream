@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.substream.data.api.Album
+import com.substream.data.api.Artist
 import com.substream.data.api.SearchResult
 import com.substream.data.api.Song
 import com.substream.player.PlayerManager
@@ -83,6 +84,7 @@ import java.util.Locale
 @Composable
 fun SearchScreen(
     onAlbumClick: (Album) -> Unit = {},
+    onArtistClick: (String, String) -> Unit = { _, _ -> },
     onBackClick: (() -> Unit)? = null,
     viewModel: SearchViewModel = koinViewModel(),
     playerManager: PlayerManager = koinInject()
@@ -174,8 +176,10 @@ fun SearchScreen(
                         SearchResultsTabbedContent(
                             searchResult = state.result,
                             onAlbumClick = onAlbumClick,
+                            onArtistClick = onArtistClick,
                             onSongClick = { song -> playerManager.playSong(song) },
                             onToggleStarAlbum = { album -> viewModel.toggleStarAlbum(album) },
+                            onToggleStarArtist = { artist -> viewModel.toggleStarArtist(artist) },
                             onToggleStarSong = { song -> viewModel.toggleStarSong(song) },
                             getCoverArtUrl = { coverArt -> viewModel.getCoverArtUrl(coverArt) }
                         )
@@ -236,19 +240,22 @@ private fun SearchInputField(
 private fun SearchResultsTabbedContent(
     searchResult: SearchResult,
     onAlbumClick: (Album) -> Unit,
+    onArtistClick: (String, String) -> Unit,
     onSongClick: (Song) -> Unit,
     onToggleStarAlbum: (Album) -> Unit,
+    onToggleStarArtist: (Artist) -> Unit,
     onToggleStarSong: (Song) -> Unit,
     getCoverArtUrl: (String?) -> String?,
     modifier: Modifier = Modifier
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf(
+        "Artists (${searchResult.artist.size})",
         "Albums (${searchResult.album.size})",
         "Songs (${searchResult.song.size})"
     )
 
-    if (searchResult.album.isEmpty() && searchResult.song.isEmpty()) {
+    if (searchResult.artist.isEmpty() && searchResult.album.isEmpty() && searchResult.song.isEmpty()) {
         Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -283,25 +290,40 @@ private fun SearchResultsTabbedContent(
 
         when (selectedTabIndex) {
             0 -> {
+                if (searchResult.artist.isEmpty()) {
+                    EmptySectionText(message = "No artists found.")
+                } else {
+                    ArtistsGrid(
+                        artists = searchResult.artist,
+                        onArtistClick = { artist -> onArtistClick(artist.id, artist.name) },
+                        onToggleStar = onToggleStarArtist,
+                        getCoverArtUrl = getCoverArtUrl,
+                    )
+                }
+            }
+
+            1 -> {
                 if (searchResult.album.isEmpty()) {
                     EmptySectionText(message = "No albums found.")
                 } else {
                     SearchAlbumsGrid(
                         albums = searchResult.album,
                         onAlbumClick = onAlbumClick,
+                        onArtistClick = onArtistClick,
                         onToggleStar = onToggleStarAlbum,
                         getCoverArtUrl = getCoverArtUrl
                     )
                 }
             }
 
-            1 -> {
+            else -> {
                 if (searchResult.song.isEmpty()) {
                     EmptySectionText(message = "No songs found.")
                 } else {
                     SearchSongsList(
                         songs = searchResult.song,
                         onSongClick = onSongClick,
+                        onArtistClick = onArtistClick,
                         onToggleStar = onToggleStarSong,
                         getCoverArtUrl = getCoverArtUrl
                     )
@@ -319,6 +341,7 @@ private fun SearchResultsTabbedContent(
 private fun SearchAlbumsGrid(
     albums: List<Album>,
     onAlbumClick: (Album) -> Unit,
+    onArtistClick: (String, String) -> Unit,
     onToggleStar: (Album) -> Unit,
     getCoverArtUrl: (String?) -> String?
 ) {
@@ -337,6 +360,7 @@ private fun SearchAlbumsGrid(
                 album = album,
                 coverArtUrl = getCoverArtUrl(album.coverArt),
                 onClick = { onAlbumClick(album) },
+                onArtistClick = onArtistClick,
                 onToggleStar = { onToggleStar(album) }
             )
         }
@@ -348,6 +372,7 @@ private fun SearchAlbumCard(
     album: Album,
     coverArtUrl: String?,
     onClick: () -> Unit,
+    onArtistClick: (String, String) -> Unit,
     onToggleStar: () -> Unit
 ) {
     Card(
@@ -395,13 +420,26 @@ private fun SearchAlbumCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Text(
-                    text = album.artist ?: "Unknown Artist",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                val cardArtistName = album.artist ?: "Unknown Artist"
+                val cardArtistId = album.artistId
+                if (cardArtistId != null) {
+                    Text(
+                        text = cardArtistName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable { onArtistClick(cardArtistId, cardArtistName) }
+                    )
+                } else {
+                    Text(
+                        text = cardArtistName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -415,6 +453,7 @@ private fun SearchAlbumCard(
 private fun SearchSongsList(
     songs: List<Song>,
     onSongClick: (Song) -> Unit,
+    onArtistClick: (String, String) -> Unit,
     onToggleStar: (Song) -> Unit,
     getCoverArtUrl: (String?) -> String?
 ) {
@@ -430,6 +469,7 @@ private fun SearchSongsList(
                 song = song,
                 coverArtUrl = getCoverArtUrl(song.coverArt),
                 onSongClick = { onSongClick(song) },
+                onArtistClick = onArtistClick,
                 onToggleStar = { onToggleStar(song) }
             )
         }
@@ -441,6 +481,7 @@ private fun SearchSongRowItem(
     song: Song,
     coverArtUrl: String?,
     onSongClick: () -> Unit,
+    onArtistClick: (String, String) -> Unit,
     onToggleStar: () -> Unit
 ) {
     Row(
@@ -475,12 +516,25 @@ private fun SearchSongRowItem(
 
             val subtitle = listOfNotNull(song.artist, song.album).joinToString(" • ")
             if (subtitle.isNotEmpty()) {
+                // "Artist • Album" is one string, so only the artist half is linkable; the whole
+                // subtitle becomes the tap target rather than trying to split the Text.
+                val songArtistId = song.artistId
+                val songArtistName = song.artist
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (songArtistId != null && songArtistName != null) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = if (songArtistId != null && songArtistName != null) {
+                        Modifier.clickable { onArtistClick(songArtistId, songArtistName) }
+                    } else {
+                        Modifier
+                    }
                 )
             }
         }

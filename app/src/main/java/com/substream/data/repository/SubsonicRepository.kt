@@ -3,9 +3,11 @@ package com.substream.data.repository
 import com.substream.data.api.Album
 import com.substream.data.api.AlbumDetail
 import com.substream.data.api.Artist
+import com.substream.data.api.ArtistDetail
 import com.substream.data.api.Playlist
 import com.substream.data.api.SearchResult
 import com.substream.data.api.SearchResult3
+import com.substream.data.api.Song
 import com.substream.data.api.SubsonicApiService
 import com.substream.data.api.SubsonicPingData
 import com.substream.data.preferences.ServerPreferences
@@ -67,31 +69,49 @@ class SubsonicRepository(
         api.search3(query = query).subsonicResponse.searchResult3 ?: SearchResult3()
     }
 
-    /**
-     * Fetches the artists index from the server.
-     *
-     * Navidrome does not implement getArtists.view, so on failure we fall back to the
-     * unique artists found in the album list. ponytail: replace with a real artist index
-     * once the server exposes one.
-     */
-    suspend fun getArtists(): Result<List<Artist>> {
-        val result = call {
-            api.getArtists().subsonicResponse.artists?.index
-                ?.flatMap { it.artist }
-                .orEmpty()
-                .sortedBy { it.name.lowercase() }
-        }
-        if (result.isSuccess) return result
+    // Cover art URLs by coverArtId. See [getCoverArtUrl] for why this exists.
+    private val coverArtCache = mutableMapOf<String, String>()
+    private var coverArtCacheServerUrl: String? = null
 
-        val fallback = getAlbums().getOrNull().orEmpty()
-            .mapNotNull { album ->
-                album.artist?.let { name ->
-                    Artist(id = album.id, name = name, coverArt = album.coverArt)
-                }
-            }
-            .distinctBy { it.name.lowercase() }
+    /**
+     * Fetches the artists index from the server, flattened and sorted by name.
+     *
+     * A failure here is a real failure (both Navidrome and Subsonic implement getArtists.view),
+     * so it is reported rather than papered over: the old fallback built artists out of album
+     * IDs, which are not artist IDs and would navigate straight into a 404.
+     */
+    suspend fun getArtists(): Result<List<Artist>> = call {
+        api.getArtists().subsonicResponse.artists?.index
+            ?.flatMap { it.artist }
+            .orEmpty()
             .sortedBy { it.name.lowercase() }
-        return if (fallback.isEmpty()) result else Result.success(fallback)
+    }
+
+    /**
+     * Fetches details of a specific artist, including their albums.
+     *
+     * @param artistId The unique ID of the artist.
+     */
+    suspend fun getArtistDetails(artistId: String): Result<ArtistDetail> = call {
+        api.getArtist(artistId = artistId).subsonicResponse.artist
+            ?: throw IOException("Artist details not found in server response")
+    }
+
+    /**
+     * Fetches an artist's songs. getArtist.view returns no tracklist, so this searches by artist
+     * name and keeps only songs whose artistId matches, which drops the same-named artists the
+     * search also returns.
+     *
+     * A server that indexes songs without an artistId contributes nothing here, which is why an
+     * empty list is a success and not an error.
+     *
+     * @param artistId The unique ID of the artist, used to filter the search results.
+     * @param artistName The artist name to search for.
+     */
+    suspend fun getArtistSongs(artistId: String, artistName: String): Result<List<Song>> = call {
+        search(artistName).getOrNull()?.song
+            ?.filter { it.artistId == artistId }
+            .orEmpty()
     }
 
     /**
@@ -109,7 +129,15 @@ class SubsonicRepository(
     }
 
     /**
-     * Toggles the favorite / starred status of a song or album on the Subsonic server.
+     * Fetches starred (favorite) artists via getStarred2.view, which returns them in the same
+     * response as the starred albums and songs.
+     */
+    suspend fun getStarredArtists(): Result<List<Artist>> = call {
+        api.getStarred().subsonicResponse.starred2?.artist.orEmpty()
+    }
+
+    /**
+     * Toggles the favorite / starred status of a song, album or artist on the Subsonic server.
      *
      * @param id The unique ID of the item (song, album, or artist).
      * @param isStarred The CURRENT starred state. If true, it will unstar; if false, it will star.
@@ -146,9 +174,22 @@ class SubsonicRepository(
     /**
      * Constructs a full authenticated URL to fetch cover art for a given coverArt ID.
      * Returns null when nobody is signed in.
+     *
+     * URLs are cached per coverArtId because every URL embeds a freshly generated random salt,
+     * so without this each recomposition hands Coil a different string for the same image and it
+     * refetches and flickers. Same reason PlayerManager caches its own copy. The cache is
+     * dropped when the active server changes, so a cached URL never outlives its credentials.
      */
-    fun getCoverArtUrl(coverArtId: String): String? =
-        serverPreferences.activeServer?.authenticatedUrl("getCoverArt.view", "id" to coverArtId)
+    fun getCoverArtUrl(coverArtId: String): String? {
+        val config = serverPreferences.activeServer ?: return null
+        if (coverArtCacheServerUrl != config.url) {
+            coverArtCache.clear()
+            coverArtCacheServerUrl = config.url
+        }
+        return coverArtCache.getOrPut(coverArtId) {
+            config.authenticatedUrl("getCoverArt.view", "id" to coverArtId)
+        }
+    }
 
     private suspend fun <T> call(block: suspend () -> T): Result<T> = withContext(Dispatchers.IO) {
         try {

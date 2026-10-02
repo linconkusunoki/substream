@@ -23,7 +23,7 @@ sealed interface LoadState<out T> {
 
 /**
  * ViewModel backing LibraryScreen: artists (getArtists.view), playlists (getPlaylists.view)
- * and starred albums (getStarred2.view).
+ * and starred albums and artists (getStarred2.view).
  */
 class LibraryViewModel(
     private val repository: SubsonicRepository
@@ -38,11 +38,49 @@ class LibraryViewModel(
     private val _starred = MutableStateFlow<LoadState<Album>>(LoadState.Idle)
     val starred: StateFlow<LoadState<Album>> = _starred.asStateFlow()
 
+    private val _starredArtists = MutableStateFlow<LoadState<Artist>>(LoadState.Idle)
+    val starredArtists: StateFlow<LoadState<Artist>> = _starredArtists.asStateFlow()
+
     fun loadArtists() = load(_artists, repository::getArtists, "Could not load artists")
 
     fun loadPlaylists() = load(_playlists, repository::getPlaylists, "Could not load playlists")
 
-    fun loadStarred() = load(_starred, repository::getStarredAlbums, "Could not load favorites")
+    fun loadStarred() {
+        load(_starred, repository::getStarredAlbums, "Could not load favorites")
+        load(_starredArtists, repository::getStarredArtists, "Could not load favorite artists")
+    }
+
+    /**
+     * Toggles an artist's starred state in the Artists tab.
+     */
+    fun toggleStarArtist(artist: Artist) = toggleStarArtist(_artists, artist)
+
+    /**
+     * Toggles an artist's starred state in the Favorites tab, removing it from the list when
+     * the toggle unstars it.
+     */
+    fun toggleStarredArtist(artist: Artist) = toggleStarArtist(_starredArtists, artist)
+
+    /**
+     * Stars or unstars an artist and reflects the new state in [target] without a refetch.
+     */
+    private fun toggleStarArtist(target: MutableStateFlow<LoadState<Artist>>, artist: Artist) {
+        viewModelScope.launch {
+            repository.toggleStar(id = artist.id, isStarred = artist.isStarred, isArtist = true)
+                .onSuccess { newStarred ->
+                    val current = target.value
+                    if (current !is LoadState.Success) return@onSuccess
+                    val starredArtist = artist.copy(starred = if (newStarred) "starred" else null)
+                    target.value = LoadState.Success(
+                        if (newStarred) {
+                            (current.items + starredArtist).distinctBy { it.id }
+                        } else {
+                            current.items.filterNot { it.id == artist.id }
+                        }
+                    )
+                }
+        }
+    }
 
     /**
      * Unstars an album from the favorites tab and removes it from the list.
