@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.substream"
+    namespace = "com.substream"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.substream"
+        applicationId = "com.substream"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
