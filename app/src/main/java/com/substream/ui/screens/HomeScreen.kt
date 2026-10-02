@@ -122,7 +122,13 @@ private fun HomeContent(
         return
     }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    // Bottom padding keeps the last shelf off the mini player and tab bar: this column is
+    // already inset by the main Scaffold's bottomBar, so the last row would sit flush
+    // against them otherwise.
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
         item {
             Row(
                 modifier = Modifier
