@@ -14,6 +14,7 @@ import com.substream.player.cache.MediaCacheManager
 import com.substream.ui.screens.AlbumDetailViewModel
 import com.substream.ui.screens.AlbumsViewModel
 import com.substream.ui.screens.ArtistDetailViewModel
+import com.substream.ui.screens.HomeViewModel
 import com.substream.ui.screens.LibraryViewModel
 import com.substream.ui.screens.LoginViewModel
 import com.substream.ui.screens.PingViewModel
@@ -74,6 +75,10 @@ val appModule = module {
 
     viewModel {
         AlbumsViewModel(repository = get())
+    }
+
+    viewModel {
+        HomeViewModel(repository = get())
     }
 
     viewModel {

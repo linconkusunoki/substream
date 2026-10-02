@@ -37,6 +37,7 @@ import com.substream.ui.components.PlayerBar
 import com.substream.ui.screens.AlbumDetailScreen
 import com.substream.ui.screens.AlbumsScreen
 import com.substream.ui.screens.ArtistDetailScreen
+import com.substream.ui.screens.HomeScreen
 import com.substream.ui.screens.LibraryScreen
 import com.substream.ui.screens.LoginScreen
 import com.substream.ui.screens.NowPlayingScreen
@@ -184,8 +185,7 @@ private fun MainNavScreen(
 
                 // 2. Home
                 composable(Screen.Home.route) {
-                    AlbumsScreen(
-                        title = "Home",
+                    HomeScreen(
                         onAlbumClick = { album ->
                             navController.navigate(Screen.AlbumDetail.createRoute(album.id))
                         },

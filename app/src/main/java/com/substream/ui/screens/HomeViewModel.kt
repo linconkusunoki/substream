@@ -1,0 +1,134 @@
+package com.substream.ui.screens
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.substream.data.api.Album
+import com.substream.data.api.Artist
+import com.substream.data.repository.SubsonicRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+/** How many albums each home shelf asks the server for. */
+private const val SHELF_SIZE = 20
+
+/** How many artists the quick-pick grid shows. */
+private const val QUICK_PICK_COUNT = 6
+
+/** Pixel size asked of the server for home cover art, matching the 150dp shelf cards. */
+private const val COVER_SIZE = 300
+
+/**
+ * Everything the home screen renders, loaded in one shot.
+ *
+ * Shelves that come back empty are simply not drawn: a library with no favorites should still
+ * show its shelves rather than an error.
+ */
+data class HomeData(
+    val recentlyAdded: List<Album> = emptyList(),
+    val frequentlyPlayed: List<Album> = emptyList(),
+    val madeForYou: List<Album> = emptyList(),
+    val favorites: List<Album> = emptyList(),
+    val artists: List<Artist> = emptyList(),
+)
+
+/**
+ * Home state. Its own type rather than the shared [LoadState] because the home loads several
+ * lists at once, and LoadState carries exactly one.
+ */
+sealed interface HomeState {
+    data object Idle : HomeState
+    data object Loading : HomeState
+    data class Success(val data: HomeData) : HomeState
+    data class Error(val message: String) : HomeState
+}
+
+/**
+ * ViewModel backing the home screen: getAlbumList2 (newest / frequent / random),
+ * getStarred2 and getArtists.
+ */
+class HomeViewModel(
+    private val repository: SubsonicRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow<HomeState>(HomeState.Idle)
+    val uiState: StateFlow<HomeState> = _uiState.asStateFlow()
+
+    /**
+     * Loads every home section concurrently so the screen appears after one round trip instead
+     * of five. The first failure wins: a home that cannot reach the server shows the error and
+     * the retry button rather than a half-empty page.
+     */
+    fun loadHome() {
+        _uiState.value = HomeState.Loading
+
+        viewModelScope.launch {
+            try {
+                val recent = async { repository.getAlbums(type = "newest", size = SHELF_SIZE) }
+                val frequent = async { repository.getAlbums(type = "frequent", size = SHELF_SIZE) }
+                val random = async { repository.getAlbums(type = "random", size = SHELF_SIZE) }
+                val favorites = async { repository.getStarredAlbums() }
+                val artists = async { repository.getArtists() }
+
+                _uiState.value = HomeState.Success(
+                    HomeData(
+                        recentlyAdded = recent.await().getOrThrow(),
+                        frequentlyPlayed = frequent.await().getOrThrow(),
+                        madeForYou = random.await().getOrThrow(),
+                        favorites = favorites.await().getOrThrow(),
+                        // Servers that do not count albums leave albumCount null, so fall
+                        // back to name order rather than letting the raw API order show.
+                        artists = artists.await().getOrThrow()
+                            .sortedWith(
+                                compareByDescending<Artist> { it.albumCount ?: 0 }
+                                    .thenBy { it.name.lowercase() }
+                            )
+                            .take(QUICK_PICK_COUNT)
+                    )
+                )
+            } catch (e: Exception) {
+                _uiState.value = HomeState.Error(e.message ?: "Could not load your home")
+            }
+        }
+    }
+
+    /**
+     * Toggles an album's starred state and reflects it in every shelf showing that album, so the
+     * same album cannot show a filled star in one row and an outline in another.
+     */
+    fun toggleStarAlbum(album: Album) {
+        viewModelScope.launch {
+            repository.toggleStar(id = album.id, isStarred = album.isStarred, isAlbum = true)
+                .onSuccess { newStarred ->
+                    val current = _uiState.value as? HomeState.Success ?: return@onSuccess
+                    val starred = album.copy(starred = if (newStarred) "starred" else null)
+                    _uiState.value = HomeState.Success(
+                        current.data.copy(
+                            recentlyAdded = current.data.recentlyAdded.replace(starred),
+                            frequentlyPlayed = current.data.frequentlyPlayed.replace(starred),
+                            madeForYou = current.data.madeForYou.replace(starred),
+                            favorites = if (newStarred) {
+                                (current.data.favorites + starred).distinctBy { it.id }
+                            } else {
+                                current.data.favorites.filterNot { it.id == album.id }
+                            }
+                        )
+                    )
+                }
+        }
+    }
+
+    private fun List<Album>.replace(album: Album): List<Album> =
+        map { if (it.id == album.id) album else it }
+
+    /**
+     * Generates a full authenticated cover art URL for a given coverArt ID, asking the server
+     * for a home-sized image.
+     */
+    fun getCoverArtUrl(coverArtId: String?): String? {
+        if (coverArtId.isNullOrEmpty()) return null
+        return repository.getCoverArtUrl(coverArtId, size = COVER_SIZE)
+    }
+}

@@ -44,10 +44,13 @@ class SubsonicRepository(
     }
 
     /**
-     * Fetches the list of albums from the Navidrome/Subsonic server.
+     * Fetches a list of albums from the Navidrome/Subsonic server.
+     *
+     * @param type getAlbumList2 sort order: newest, frequent, random, highest, ...
+     * @param size how many albums to ask for.
      */
-    suspend fun getAlbums(): Result<List<Album>> = call {
-        api.getAlbums().subsonicResponse.albumList2?.album.orEmpty()
+    suspend fun getAlbums(type: String = "newest", size: Int = 20): Result<List<Album>> = call {
+        api.getAlbums(type = type, size = size).subsonicResponse.albumList2?.album.orEmpty()
     }
 
     /**
@@ -175,19 +178,26 @@ class SubsonicRepository(
      * Constructs a full authenticated URL to fetch cover art for a given coverArt ID.
      * Returns null when nobody is signed in.
      *
-     * URLs are cached per coverArtId because every URL embeds a freshly generated random salt,
-     * so without this each recomposition hands Coil a different string for the same image and it
+     * URLs are cached per coverArtId and size because every URL embeds a freshly generated random
+     * salt, so without this each recomposition hands Coil a different string for the same image and it
      * refetches and flickers. Same reason PlayerManager caches its own copy. The cache is
      * dropped when the active server changes, so a cached URL never outlives its credentials.
+     *
+     * @param size requested edge length in pixels. Navidrome resizes server-side, so grids and
+     * shelves should ask for what they draw instead of pulling full-resolution covers.
      */
-    fun getCoverArtUrl(coverArtId: String): String? {
+    fun getCoverArtUrl(coverArtId: String, size: Int = 0): String? {
         val config = serverPreferences.activeServer ?: return null
         if (coverArtCacheServerUrl != config.url) {
             coverArtCache.clear()
             coverArtCacheServerUrl = config.url
         }
-        return coverArtCache.getOrPut(coverArtId) {
-            config.authenticatedUrl("getCoverArt.view", "id" to coverArtId)
+        return coverArtCache.getOrPut("$size:$coverArtId") {
+            config.authenticatedUrl(
+                "getCoverArt.view",
+                "id" to coverArtId,
+                "size" to size.toString()
+            )
         }
     }
 
