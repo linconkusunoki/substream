@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,14 +34,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.substream.player.PlayerState
 
+/** Upward drag distance (px) on the bar that counts as "expand to full screen". */
+private const val SWIPE_UP_THRESHOLD_PX = 32f
+
 /**
  * Bottom Player Bar component displaying current playing song with playback controls.
+ *
+ * Tapping the bar or swiping it up expands the full screen player via [onExpand].
  */
 @Composable
 fun PlayerBar(
@@ -48,8 +55,8 @@ fun PlayerBar(
     onPlayPauseClick: () -> Unit,
     onStopClick: () -> Unit,
     getCoverArtUrl: (String?) -> String?,
-    modifier: Modifier = Modifier,
-    onBarClick: (() -> Unit)? = null
+    onExpand: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val currentSong = playerState.currentSong
 
@@ -61,10 +68,27 @@ fun PlayerBar(
     ) {
         if (currentSong != null) {
             Card(
-                onClick = { onBarClick?.invoke() },
+                onClick = onExpand,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    // Swipe up anywhere on the bar to expand, mirroring the tap. This only
+                    // engages past touch slop, so a plain tap still reaches the Card's onClick.
+                    .pointerInput(onExpand) {
+                        var dragged = 0f
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, dragAmount ->
+                                dragged += dragAmount
+                                if (dragged < -SWIPE_UP_THRESHOLD_PX) {
+                                    dragged = 0f
+                                    onExpand()
+                                }
+                                change.consume()
+                            },
+                            onDragEnd = { dragged = 0f },
+                            onDragCancel = { dragged = 0f },
+                        )
+                    },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh

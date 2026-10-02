@@ -117,12 +117,12 @@ fun NowPlayingScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // 1. Adaptive High-Resolution Album Cover Art
+                // 1. Adaptive High-Resolution Album Cover Art.
+                // Sized off the width alone, never off the leftover height: the sheet re-measures
+                // its content while it settles, and an artwork that depends on the remaining space
+                // visibly resizes mid-animation. Width is fixed for the whole animation.
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
                     val coverArtUrl = remember(currentSong.coverArt) {
@@ -134,8 +134,8 @@ fun NowPlayingScreen(
                             shape = RoundedCornerShape(24.dp),
                             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                             modifier = Modifier
-                                .fillMaxSize()
-                                .aspectRatio(1f, matchHeightConstraintsFirst = true)
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
                         ) {
                             AsyncImage(
                                 model = coverArtUrl,
@@ -152,8 +152,8 @@ fun NowPlayingScreen(
                             ),
                             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                             modifier = Modifier
-                                .fillMaxSize()
-                                .aspectRatio(1f, matchHeightConstraintsFirst = true)
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
                         ) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),

@@ -24,7 +24,6 @@ sealed class Screen(val route: String) {
         const val ARG_ALBUM_ID = "albumId"
         fun createRoute(albumId: String): String = "album_detail/$albumId"
     }
-    data object NowPlaying : Screen("now_playing")
 }
 
 /**

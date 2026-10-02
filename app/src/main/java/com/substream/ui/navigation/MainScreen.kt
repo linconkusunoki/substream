@@ -1,22 +1,27 @@
 package com.substream.ui.navigation
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -36,6 +41,7 @@ import com.substream.ui.screens.LoginScreen
 import com.substream.ui.screens.NowPlayingScreen
 import com.substream.ui.screens.SearchScreen
 import com.substream.ui.screens.SettingsScreen
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 /**
@@ -60,6 +66,7 @@ fun MainScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainNavScreen(
     navController: NavHostController = rememberNavController(),
@@ -68,7 +75,6 @@ private fun MainNavScreen(
     val playerState by playerManager.playerState.collectAsState()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    val currentRoute = currentDestination?.route
 
     // List of bottom navigation bar tabs
     val bottomNavItems = listOf(
@@ -78,9 +84,12 @@ private fun MainNavScreen(
         BottomNavItem.Settings,
     )
 
-    // Show BottomBar on top-level screens (hide on full-screen player)
-    val isNowPlayingRoute = currentRoute == Screen.NowPlaying.route
-    val showBottomBar = !isNowPlayingRoute
+    // The full screen player is a ModalBottomSheet rather than a NavHost destination so the
+    // mini bar expands into it with Material's spring: sheet slides up over a scrim, swipe down
+    // (or back, or the chevron) collapses it back onto the still-mounted bar.
+    var isPlayerExpanded by rememberSaveable { mutableStateOf(false) }
+    val playerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
 
     // Single entry point to switch tabs. Using it for *every* jump to a tab
     // (bottom bar clicks AND in-screen shortcuts) keeps ViewModel state alive
@@ -106,41 +115,33 @@ private fun MainNavScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             Column {
-                // Mini Player Bar: visible when a song is loaded and not in full NowPlaying screen
-                if (!isNowPlayingRoute) {
-                    PlayerBar(
-                        playerState = playerState,
-                        onPlayPauseClick = { playerManager.togglePlayPause() },
-                        onStopClick = { playerManager.stop() },
-                        getCoverArtUrl = { coverArt -> playerManager.getCoverArtUrl(coverArt) },
-                        onBarClick = { navController.navigate(Screen.NowPlaying.route) },
-                    )
-                }
+                // Mini Player Bar. Stays mounted while the sheet is open (it is fully covered
+                // by it) so collapsing the sheet reveals it instantly, with no re-entry animation.
+                PlayerBar(
+                    playerState = playerState,
+                    onPlayPauseClick = { playerManager.togglePlayPause() },
+                    onStopClick = { playerManager.stop() },
+                    getCoverArtUrl = { coverArt -> playerManager.getCoverArtUrl(coverArt) },
+                    onExpand = { isPlayerExpanded = true },
+                )
 
-                // Bottom Navigation Bar with animation
-                AnimatedVisibility(
-                    visible = showBottomBar,
-                    enter = slideInVertically(initialOffsetY = { it }),
-                    exit = slideOutVertically(targetOffsetY = { it }),
-                ) {
-                    NavigationBar {
-                        bottomNavItems.forEach { item ->
-                            val isSelected = currentDestination?.hierarchy?.any { it.route == item.route } == true
+                NavigationBar {
+                    bottomNavItems.forEach { item ->
+                        val isSelected = currentDestination?.hierarchy?.any { it.route == item.route } == true
 
-                            NavigationBarItem(
-                                selected = isSelected,
-                                onClick = {
-                                    if (!isSelected) navigateToTab(item.route)
-                                },
-                                icon = {
-                                    Icon(
-                                        imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
-                                        contentDescription = item.title,
-                                    )
-                                },
-                                label = { Text(text = item.title) },
-                            )
-                        }
+                        NavigationBarItem(
+                            selected = isSelected,
+                            onClick = {
+                                if (!isSelected) navigateToTab(item.route)
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                    contentDescription = item.title,
+                                )
+                            },
+                            label = { Text(text = item.title) },
+                        )
                     }
                 }
             }
@@ -212,14 +213,32 @@ private fun MainNavScreen(
                         onBackClick = { navController.popBackStack() },
                     )
                 }
-
-                // 6. Player Expandido (Now Playing)
-                composable(Screen.NowPlaying.route) {
-                    NowPlayingScreen(
-                        onBackClick = { navController.popBackStack() },
-                    )
-                }
             }
+        }
+    }
+
+    // Player Expandido (Now Playing), as a sheet over the whole app.
+    if (isPlayerExpanded) {
+        ModalBottomSheet(
+            onDismissRequest = { isPlayerExpanded = false },
+            sheetState = playerSheetState,
+            // Uncapped width: the player is full screen, including on tablets/foldables.
+            sheetMaxWidth = Dp.Unspecified,
+            // NowPlayingScreen's own Scaffold owns the insets from here (same reason the main
+            // Scaffold zeroes them), so the sheet must not add them a second time.
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+        ) {
+            NowPlayingScreen(
+                // hide() suspends until the collapse animation is done, so the sheet is only
+                // unmounted once it is off screen.
+                onBackClick = {
+                    scope.launch {
+                        playerSheetState.hide()
+                        isPlayerExpanded = false
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }
