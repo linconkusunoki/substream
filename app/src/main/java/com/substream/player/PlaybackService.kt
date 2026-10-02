@@ -2,6 +2,7 @@
 
 package com.substream.player
 
+import android.app.PendingIntent
 import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
@@ -10,6 +11,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.substream.MainActivity
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -36,19 +38,44 @@ class PlaybackService : MediaSessionService(), KoinComponent {
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        mediaSession = MediaSession.Builder(this, player)
+            // Without this the media notification has no target and tapping it is a no-op.
+            .setSessionActivity(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, MainActivity::class.java).apply {
+                        action = Intent.ACTION_MAIN
+                        addCategory(Intent.CATEGORY_LAUNCHER)
+                        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    },
+                    PendingIntent.FLAG_IMMUTABLE,
+                )
+            )
+            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
     }
 
+    /**
+     * Dismissing the app from recents means "I'm done": pause and tear the service down so
+     * the media notification goes with it. Leaving the app by pressing home does not land
+     * here, so background playback keeps playing with a live notification.
+     */
+    @OptIn(UnstableApi::class)
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player
-        if (player != null && (!player.playWhenReady)) {
-            stopSelf()
-        }
+        pauseAllPlayersAndStopSelf()
     }
+
+    /**
+     * START_STICKY (the MediaSessionService default) makes Android restart the service once
+     * it stops, which re-posts the media notification with actions bound to a player the
+     * service no longer owns — the notification sits in the tray and its buttons do nothing.
+     */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =
+        super.onStartCommand(intent, flags, startId).let { START_NOT_STICKY }
 
     override fun onDestroy() {
         mediaSession?.run {

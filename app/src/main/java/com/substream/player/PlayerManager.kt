@@ -16,7 +16,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -125,7 +124,7 @@ class PlayerManager(
                 if (server == null) stop()
             }
         }
-        initializeController()
+        connect()
     }
 
     private fun initializeController() {
@@ -319,11 +318,27 @@ class PlayerManager(
         _playerState.value = PlayerState()
     }
 
-    fun release() {
+    /**
+     * Binds to [PlaybackService]. Idempotent — safe to call on every Activity start.
+     *
+     * The binding must be dropped again in [disconnect] whenever the app goes away: a bound
+     * controller keeps the service alive, and `stopSelf()` is a documented no-op while any
+     * client is still bound, so swipe-away-from-recents could never clear the notification.
+     */
+    fun connect() {
+        if (controller != null || controllerFuture != null) return
+        initializeController()
+    }
+
+    /**
+     * Unbinds from [PlaybackService]. Playback in the service is unaffected — the session owns
+     * the player, not this controller — but the service becomes stoppable again.
+     */
+    fun disconnect() {
         stopPositionUpdates()
-        scope.cancel()
         controller?.removeListener(playerListener)
         controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
         controller = null
     }
 }

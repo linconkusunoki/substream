@@ -43,8 +43,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        playerManager.release()
+    override fun onStart() {
+        super.onStart()
+        playerManager.connect()
+    }
+
+    // Unbinding here is what lets the service actually stop when the app is swiped out of
+    // recents; playback itself lives in the service and carries on regardless.
+    override fun onStop() {
+        playerManager.disconnect()
+        super.onStop()
     }
 }
