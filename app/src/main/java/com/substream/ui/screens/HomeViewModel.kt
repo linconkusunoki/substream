@@ -74,13 +74,14 @@ class HomeViewModel(
 
                 _uiState.value = HomeState.Success(
                     HomeData(
-                        recentlyAdded = recent.await().getOrThrow(),
-                        frequentlyPlayed = frequent.await().getOrThrow(),
-                        madeForYou = random.await().getOrThrow(),
-                        favorites = favorites.await().getOrThrow(),
+                        recentlyAdded = recent.await().getOrThrow().withImage(),
+                        frequentlyPlayed = frequent.await().getOrThrow().withImage(),
+                        madeForYou = random.await().getOrThrow().withImage(),
+                        favorites = favorites.await().getOrThrow().withImage(),
                         // Servers that do not count albums leave albumCount null, so fall
                         // back to name order rather than letting the raw API order show.
                         artists = artists.await().getOrThrow()
+                            .withArtistImage()
                             .sortedWith(
                                 compareByDescending<Artist> { it.albumCount ?: 0 }
                                     .thenBy { it.name.lowercase() }
@@ -132,3 +133,11 @@ class HomeViewModel(
         return repository.getCoverArtUrl(coverArtId, size = COVER_SIZE)
     }
 }
+
+/**
+ * Home tiles are nothing but artwork, so entries the server has no cover for are dropped here
+ * rather than drawn as blank boxes.
+ */
+internal fun List<Album>.withImage(): List<Album> = filter { !it.coverArt.isNullOrEmpty() }
+
+internal fun List<Artist>.withArtistImage(): List<Artist> = filter { !it.coverArt.isNullOrEmpty() }
