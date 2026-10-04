@@ -184,6 +184,7 @@ interface SubsonicApiService {
     suspend fun getAlbums(
         @Query("type") type: String = "newest",
         @Query("size") size: Int = 20,
+        @Query("offset") offset: Int = 0,
         @Query("v") version: String = "1.16.1",
         @Query("c") client: String = "SubStream",
         @Query("f") format: String = "json"

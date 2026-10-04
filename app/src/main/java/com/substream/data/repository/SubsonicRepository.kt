@@ -15,6 +15,32 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
+/** Page size for the album walk in [mainArtistIds]; 500 is the server maximum. */
+private const val ALBUM_PAGE = 500
+
+/**
+ * The IDs of every artist that is some album's primary artist, found by paging the whole album
+ * list. An album carries exactly one artistId even when the server knows several participants,
+ * so this is the only signal that separates a headliner from a guest.
+ *
+ * Takes the page fetcher rather than the API so the paging can be exercised without a server.
+ */
+internal suspend fun mainArtistIds(fetchPage: suspend (offset: Int) -> List<Album>): Set<String> {
+    val ids = mutableSetOf<String>()
+    val seenAlbums = mutableSetOf<String>()
+    var offset = 0
+    while (true) {
+        val page = fetchPage(offset)
+        // A server that ignores offset replays the same page forever; stop instead of spinning.
+        val fresh = page.filter { seenAlbums.add(it.id) }
+        if (fresh.isEmpty() && page.isNotEmpty()) break
+        fresh.forEach { album -> album.artistId?.let { ids.add(it) } }
+        if (page.size < ALBUM_PAGE) break
+        offset += ALBUM_PAGE
+    }
+    return ids
+}
+
 /**
  * Repository responsible for handling data operations related to the Subsonic API.
  * This class abstracts the network logic from the UI layer.
@@ -82,13 +108,25 @@ class SubsonicRepository(
      * A failure here is a real failure (both Navidrome and Subsonic implement getArtists.view),
      * so it is reported rather than papered over: the old fallback built artists out of album
      * IDs, which are not artist IDs and would navigate straight into a 404.
+     *
+     * The index is then narrowed to the artists that actually head an album. getArtists.view
+     * hands back every artist the server files under the albumartist role, and a server that
+     * splits ALBUMARTIST on "feat."/"ft."/"&" files the guest there too. An album's singular
+     * artistId is the only field that still means "main artist", so that is the filter. It is
+     * best effort: a server that cannot be walked keeps the full index rather than the screen.
      */
     suspend fun getArtists(): Result<List<Artist>> = call {
-        api.getArtists().subsonicResponse.artists?.index
+        val artists = api.getArtists().subsonicResponse.artists?.index
             ?.flatMap { it.artist }
             .orEmpty()
             .sortedBy { it.name.lowercase() }
+        val mainIds = runCatching { mainArtistIds { offset -> albumPage(offset) } }.getOrDefault(emptySet())
+        if (mainIds.isEmpty()) artists else artists.filter { it.id in mainIds }
     }
+
+    private suspend fun albumPage(offset: Int): List<Album> =
+        api.getAlbums(type = "alphabeticalByArtist", size = ALBUM_PAGE, offset = offset)
+            .subsonicResponse.albumList2?.album.orEmpty()
 
     /**
      * Fetches details of a specific artist, including their albums.
