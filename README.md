@@ -10,7 +10,7 @@ speaking the Subsonic API. No account, no cloud, no closed format.
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Media3](https://img.shields.io/badge/ExoPlayer-Media3%201.11-FF6D00?logo=googleplay&logoColor=white)](https://developer.android.com/media/media3)
-[![License: TBD](#license)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 </div>
 
@@ -104,4 +104,4 @@ Actively built and usable. No releases are published yet — build from source.
 
 ## License
 
-Not yet licensed. All rights reserved until a license is chosen.
+[MIT](LICENSE) © 2026 Lincon Kusunoki
